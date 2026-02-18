@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { checkAllCollisions, checkCollision } from './collisionDetector.js';
+import { checkCollision } from './collisionDetector.js';
+import { SpatialGrid } from './spatialGrid.js';
 
 // --- 1. Core Setup ---
 const scene = new THREE.Scene();
@@ -91,6 +92,9 @@ scene.add(testBox);
 // --- All Collidable Objects ---
 const collidableObjects = [cameraCollisionBox, testBox, /* Add more objects here as needed */ ];
 
+const grid = new SpatialGrid({ cellSize: 4 });
+const frameBoxCache = new Map();
+
 // --- 5. Animation Loop ---
 const clock = new THREE.Clock();
 
@@ -118,12 +122,31 @@ function animate() {
         controls.moveForward(-velocity.z * delta);
         cameraCollisionBox.position.x = camera.position.x;
         cameraCollisionBox.position.z = camera.position.z;
+        // cameraCollisionBox is not in the scene graph, so Three.js never updates
+        // its matrixWorld automatically. Call it manually before Box3.setFromObject().
+        cameraCollisionBox.updateMatrixWorld(true);
 
-        // Test player collision with all collidable objects
+        // Broadphase: compute Box3 once per object and insert into spatial grid
+        frameBoxCache.clear();
+        for (const obj of collidableObjects) {
+            frameBoxCache.set(obj, new THREE.Box3().setFromObject(obj));
+        }
+        grid.clear();
+        for (const obj of collidableObjects) {
+            grid.insert(obj, frameBoxCache.get(obj));
+        }
+
+        // Narrow phase: only test the player against candidates from nearby cells
+        const playerBox = frameBoxCache.get(cameraCollisionBox);
+        const candidates = grid.query(playerBox);
+
         let inCollision = false;
-        if (checkAllCollisions(cameraCollisionBox, collidableObjects)) {
-            console.log('Collision Detected!');
-            inCollision = true;
+        for (const candidate of candidates) {
+            if (candidate !== cameraCollisionBox && playerBox.intersectsBox(frameBoxCache.get(candidate))) {
+                console.log('Collision Detected!');
+                inCollision = true;
+                break;
+            }
         }
 
         // Revert movement to prevent passing through objects if in collision
