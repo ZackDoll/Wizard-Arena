@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { checkCollision } from './collisionDetector.js';
 import { SpatialGrid } from './spatialGrid.js';
+import { createArena } from './arena.js';
 
 // --- 1. Core Setup ---
 const scene = new THREE.Scene();
@@ -9,7 +10,7 @@ scene.background = new THREE.Color(0x87CEEB); // Sky blue
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 // Position the camera at human eye-level (1.7 units up)
-camera.position.y = 1.7; 
+camera.position.y = 1.7;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -34,28 +35,22 @@ sunLight.position.set(50, 100, 50);
 sunLight.castShadow = true;
 scene.add(sunLight);
 
-// --- 3. Ground Plane ---
-const groundSize = 100;
-const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
-const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2; // Lay flat
-ground.receiveShadow = true;
-scene.add(ground);
 
-// --- 4. First Person Controls ---
+//controls
 const controls = new PointerLockControls(camera, document.body);
 
-// Click to start/lock mouse
+//Click to start/lock mouse
 document.addEventListener('click', () => {
     controls.lock();
 });
 
-// Movement variables
+// movement vars
 let moveForward = false;
 let moveBackward = false;
 let moveLeft = false;
 let moveRight = false;
+let jump = false;
+let isOnGround = false;
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 
@@ -65,6 +60,7 @@ const onKeyDown = (event) => {
         case 'KeyS': moveBackward = true; break;
         case 'KeyA': moveLeft = true; break;
         case 'KeyD': moveRight = true; break;
+        case 'Space': jump = true; break;
     }
 };
 
@@ -74,13 +70,14 @@ const onKeyUp = (event) => {
         case 'KeyS': moveBackward = false; break;
         case 'KeyA': moveLeft = false; break;
         case 'KeyD': moveRight = false; break;
+        case 'Space': jump = false; break;
     }
 };
 
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup', onKeyUp);
 
-// --- Random Box Object for Testing ---
+// collision test box
 const testBox = new THREE.Mesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshStandardMaterial({ color: 0x0000ff })
@@ -89,13 +86,16 @@ testBox.position.set(5, 0.5, 5);
 testBox.castShadow = false;
 scene.add(testBox);
 
-// --- All Collidable Objects ---
-const collidableObjects = [cameraCollisionBox, testBox, /* Add more objects here as needed */ ];
+//all collidable objects (make into data structure and import here)
+const collidableObjects = [cameraCollisionBox, testBox];
+
+const { floor, pillars } = createArena(scene);
+collidableObjects.push(...pillars);
 
 const grid = new SpatialGrid({ cellSize: 4 });
 const frameBoxCache = new Map();
 
-// --- 5. Animation Loop ---
+//animation loop
 const clock = new THREE.Clock();
 
 function animate() {
@@ -105,7 +105,7 @@ function animate() {
         const delta = clock.getDelta(); // Time between frames
         const oldPosition = camera.position.clone(); // Store old position for collision response
 
-        // Reset velocity
+        // Reset velocity (no damping on Y — gravity handles it)
         velocity.x -= velocity.x * 10.0 * delta;
         velocity.z -= velocity.z * 10.0 * delta;
 
@@ -115,18 +115,27 @@ function animate() {
         direction.normalize();
 
         // Apply movement
-        if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-        if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+        if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+        if (jump && isOnGround) {
+            velocity.y = 13.0;
+            isOnGround = false;
+        }
+
+        //strong grav when fall, weak when rise to make it feel like accelerating but idk how to do it properly
+        const gravity = velocity.y < 0 ? 30.0 : 24.0;
+        velocity.y -= gravity * delta;
 
         controls.moveRight(-velocity.x * delta);
+        camera.position.y += velocity.y * delta;
         controls.moveForward(-velocity.z * delta);
         cameraCollisionBox.position.x = camera.position.x;
+        cameraCollisionBox.position.y = camera.position.y;
         cameraCollisionBox.position.z = camera.position.z;
-        // cameraCollisionBox is not in the scene graph, so Three.js never updates
-        // its matrixWorld automatically. Call it manually before Box3.setFromObject().
+
         cameraCollisionBox.updateMatrixWorld(true);
 
-        // Broadphase: compute Box3 once per object and insert into spatial grid
+        //compute Box3 once per object and insert into spatial grid
         frameBoxCache.clear();
         for (const obj of collidableObjects) {
             frameBoxCache.set(obj, new THREE.Box3().setFromObject(obj));
@@ -136,27 +145,51 @@ function animate() {
             grid.insert(obj, frameBoxCache.get(obj));
         }
 
-        // Narrow phase: only test the player against candidates from nearby cells
+        //diff between old and new pos
+        const dx = camera.position.x - oldPosition.x;
+        const dy = camera.position.y - oldPosition.y;
+        const dz = camera.position.z - oldPosition.z;
+
+        //candidates from spatial grid based on player's collision box
         const playerBox = frameBoxCache.get(cameraCollisionBox);
         const candidates = grid.query(playerBox);
 
-        let inCollision = false;
-        for (const candidate of candidates) {
-            if (candidate !== cameraCollisionBox && playerBox.intersectsBox(frameBoxCache.get(candidate))) {
-                console.log('Collision Detected!');
-                inCollision = true;
-                break;
+        //check if it collides any candidates
+        function boxCollides(testBox) {
+            for (const candidate of candidates) {
+                if (candidate !== cameraCollisionBox && testBox.intersectsBox(frameBoxCache.get(candidate))) {
+                    return true;
+                }
             }
+            return false;
         }
 
-        // Revert movement to prevent passing through objects if in collision
-        if (inCollision) {
-            camera.position.copy(oldPosition);
-            cameraCollisionBox.position.copy(camera.position);
+        //each axis gets tested independently
+        const xCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(0, -dy, -dz)));
+        const yCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(-dx, 0, -dz)));
+        const zCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(-dx, -dy, 0)));
+
+        if (xCollides) {
+            console.log("Collision");
+            camera.position.x = oldPosition.x;
         }
-        if (checkCollision(cameraCollisionBox, ground)) {
-            camera.position.y = ground.position.y + 1.7; // Keep the player above the ground
-            cameraCollisionBox.position.y = camera.position.y / 2;
+        if (yCollides) {
+            velocity.y = 0;
+            camera.position.y = oldPosition.y;
+            isOnGround = true;
+        }
+        if (zCollides) {
+            console.log("Collision");
+            camera.position.z = oldPosition.z;
+        }
+        cameraCollisionBox.position.x = camera.position.x;
+        cameraCollisionBox.position.y = camera.position.y;
+        cameraCollisionBox.position.z = camera.position.z;
+        const groundY = floor.position.y + 1.7;
+        if (camera.position.y <= groundY) {
+            camera.position.y = groundY;
+            velocity.y = 0;
+            isOnGround = true;
         }
 
     }
@@ -164,7 +197,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Handle Window Resize
+//window resize handler
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
