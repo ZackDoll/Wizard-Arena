@@ -15,14 +15,14 @@ export function loadWorld(engine) {
 
     //floor
     const floor = engine.addEntity('floorEntity');
-    floor.addComponent(new C.PositionComponent(0, -5, 0));
+    floor.addComponent(new C.PositionComponent(new THREE.Vector3(0, -5, 0)));
     floor.addComponent(new C.MeshComponent(
         new THREE.Mesh(
             new THREE.CylinderGeometry(r, r, 10, 64),
             new THREE.MeshStandardMaterial({ color: SAND_COLOR })
         )
     ));
-    floor.addComponent(new C.CollisionComponent(r, 5, r));
+    floor.addComponent(new C.CollisionComponent(new THREE.Vector3(r, 5, r)));
 
     //bounding walls (invisible, just for collisions)
     const yAxis = new THREE.Vector3(0, 1, 0);
@@ -37,16 +37,20 @@ export function loadWorld(engine) {
         wallMesh.quaternion.copy(q); // no RotationComponent, so RenderSystem won't override this
 
         const wall = engine.addEntity('arenaWallEntity');
-        wall.addComponent(new C.PositionComponent(
-            Math.cos(angle) * ARENA_RADIUS,
-            WALL_HEIGHT,
-            Math.sin(angle) * ARENA_RADIUS
+        wall.addComponent(new C.PositionComponent( 
+            new THREE.Vector3(
+                Math.cos(angle) * ARENA_RADIUS,
+                WALL_HEIGHT,
+                Math.sin(angle) * ARENA_RADIUS
+            )
         ));
-        wall.addComponent(new C.CollisionComponent(
-            SEGMENT_WIDTH / 2,   // half-width along tangent
-            WALL_HEIGHT,         // half-height
-            WALL_THICKNESS / 2,  // half-depth along radial
-            q                    // rotation aligns local Z with the outward radial
+        wall.addComponent(new C.CollisionComponent( 
+            new THREE.Vector3(
+                SEGMENT_WIDTH / 2,   // half-width along tangent
+                WALL_HEIGHT,         // half-height
+                WALL_THICKNESS / 2   // half-depth along radial
+            ),  
+            q                        // rotation aligns local Z with the outward radial
         ));
         wall.addComponent(new C.MeshComponent(wallMesh));
     }

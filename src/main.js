@@ -33,7 +33,7 @@ engine.addSystem(new S.LifespanSystem(engine.destroyQueue));
 // create and add entities to engine
 
 // create wizard (must be first entity)
-const wizard = engine.addEntity('wizard');
+const wizard = engine.addEntity('wizardEntity');
 wizard.addComponent(new C.InputComponent());
 const wizardGeo = new THREE.BoxGeometry(1, 2, 1);
 const wizardMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
@@ -48,7 +48,7 @@ wizard.addComponent(new C.CollisionComponent());
 // wizard.addComponent(new C.HealthComponent());
 
 // create test zombie
-const zombie = engine.addEntity('zombie');
+const zombie = engine.addEntity('zombieEntity');
 // zombie.addComponent(new C.InputComponent());
 const zombieGeo = new THREE.BoxGeometry(1, 2, 1);
 const zombieMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
@@ -59,7 +59,7 @@ zombie.addComponent(new C.VelocityComponent(new THREE.Vector3()));
 zombie.addComponent(new C.CollisionComponent());
 
 //nonmoving box to test static collisions
-const staticBox = engine.addEntity('staticBox');
+const staticBox = engine.addEntity('staticBoxEntity');
 const staticBoxGeo = new THREE.BoxGeometry(1, 2, 1);
 const staticBoxMat = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
 const staticBoxMesh = new THREE.Mesh(staticBoxGeo, staticBoxMat);

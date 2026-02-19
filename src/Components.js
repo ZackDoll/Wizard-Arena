@@ -22,9 +22,9 @@ export class VelocityComponent extends Component {
 }
 
 export class CollisionComponent extends Component {
-    constructor(halfX = 0.5, halfY = 1, halfZ = 0.5, rotation = new THREE.Quaternion()) {
+    constructor(halfVec = new THREE.Vector3(0.5, 1, 0.5), rotation = new THREE.Quaternion()) {
         super();
-        this.half = new THREE.Vector3(halfX, halfY, halfZ);
+        this.half = halfVec;
         this.rotation = rotation; // identity = axis-aligned (backward compatible)
     }
 }

@@ -20,7 +20,7 @@ export function fireballComponents(entity, origin, direction) {
     entity.addComponent(new VelocityComponent(vel));
 
     // Sphere-like AABB — equal halves on all axes
-    entity.addComponent(new CollisionComponent(FIREBALL_RADIUS, FIREBALL_RADIUS, FIREBALL_RADIUS));
+    entity.addComponent(new CollisionComponent(new THREE.Vector3(FIREBALL_RADIUS, FIREBALL_RADIUS, FIREBALL_RADIUS)));
 
     entity.addComponent(new HealthComponent(1));
 
