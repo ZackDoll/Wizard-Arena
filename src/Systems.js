@@ -43,7 +43,7 @@ export class InputSystem extends System {
 
     update(em, delta) {
         // deltas are reset by whichever system consumes them (e.g. CameraControlSystem)
-        console.log(this.keys)
+        //console.log(this.keys)
     }
 }
 
@@ -108,8 +108,21 @@ export class CameraControlSystem {
 
     const sensitivity = 0.002;
     if (this.inputSystem.mouse.locked) {
-        this.yaw   -= this.inputSystem.mouse.dx * sensitivity;
-        this.pitch -= this.inputSystem.mouse.dy * sensitivity;
+        const deltaThreshold = 200;
+        let dx = this.inputSystem.mouse.dx;
+        let dy = this.inputSystem.mouse.dy;
+        const deltaOverThreshold = Math.abs(dx) > deltaThreshold || Math.abs(dy) > deltaThreshold;
+        
+        if (deltaOverThreshold && !this.lastFrameOverThreshold) {
+            // don't apply delta on first frame where it exceeds threshold to prevent camera jumps.
+            // if next frames are also over delta threshold meaning user intentionally moves mouse fast, then apply deltas
+            dx = 0;
+            dy = 0;
+        } 
+        this.lastFrameOverThreshold = deltaOverThreshold;
+        
+        this.yaw   -= dx * sensitivity;
+        this.pitch -= dy * sensitivity;
     }
     // consume deltas so they don't carry over to the next frame
     this.inputSystem.mouse.dx = 0;
