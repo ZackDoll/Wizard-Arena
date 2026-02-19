@@ -53,7 +53,7 @@ export class RenderSystem extends System { // TODO
 
         // updates the position and rotation components of entities meshes according to their position/rotation components
 
-        for (const entity of em.getWith('MeshComponent')) {
+        for (const entity of em.getWithComponentName('MeshComponent')) {
             const position = entity.getComponent('PositionComponent').position;
             const rotation = entity.getComponent('RotationComponent');
             const meshComp = entity.getComponent('MeshComponent');
@@ -134,7 +134,7 @@ export class MovementSystem extends System {
     }
 
     update(em, delta) {
-        for (const e of em.getWith('PositionComponent', 'VelocityComponent')) {
+        for (const e of em.getWithComponentName('PositionComponent', 'VelocityComponent')) {
 
             const pos = e.getComponent('PositionComponent').position;
             const vel = e.getComponent('VelocityComponent').velocity;
@@ -182,7 +182,7 @@ export class CollisionSystem extends System { // TODO
         const cam   = this.camera;
         const cache = this._boxCache;
 
-        for (const e of em.getWith('TransformComponent', 'ShapeComponent', 'CollisionComponent')) {
+        for (const e of em.getWithComponentName('TransformComponent', 'ShapeComponent', 'CollisionComponent')) {
             const t           = e.getComponent('TransformComponent');
             const collisionBox = e.getComponent('ShapeComponent').mesh;
 

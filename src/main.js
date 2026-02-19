@@ -41,15 +41,15 @@ wizard.addComponent(new C.VelocityComponent());
 // wizard.addComponent(new C.ScoreComponent());
 // wizard.addComponent(new C.HealthComponent());
 
-// create zombie
+// create test zombie
 const zombie = engine.addEntity('zombieEntity');
-// // zomibie.addComponent(new C.InputComponent());
+// zombie.addComponent(new C.InputComponent());
 const zombieGeo = new THREE.BoxGeometry(1, 2, 1);
 const zombieMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
 const zombieMesh = new THREE.Mesh(zombieGeo, zombieMat);
 zombie.addComponent(new C.MeshComponent(zombieMesh));
 zombie.addComponent(new C.PositionComponent(0, 1, -5));
-// zombie.addComponent(new C.VelocityComponent());
+zombie.addComponent(new C.VelocityComponent());
 
 
 // create arena

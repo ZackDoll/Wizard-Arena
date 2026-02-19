@@ -20,7 +20,7 @@ export class EntityManager {
         return this._entities;
     }
 
-    getWith(...componentNames) {
+    getWithComponentName(...componentNames) {
         return this._entities.filter(e =>
             componentNames.every(name => e.getComponent(name))
         );
