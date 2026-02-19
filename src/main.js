@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GameEngine } from './GameEngine.js';
 import * as C from './Components.js';
 import * as S from './Systems.js';
+import { loadWorld } from './world.js';
 
 // CONSTANTS
 const WALL_SEGMENTS = 16;
@@ -12,7 +13,6 @@ const WALL_THICKNESS = 1.2;
 const SEGMENT_WIDTH = (2 * Math.PI * ARENA_RADIUS) / WALL_SEGMENTS + 0.3;
 
 const STONE_COLOR = 0x8c7a5c; // weathered sandstone
-const SAND_COLOR  = 0xfddea5; // arena floor
 
 
  // create engine (main system)
@@ -65,15 +65,7 @@ staticBox.addComponent(new C.PositionComponent(0, 1, -10));
 staticBox.addComponent(new C.CollisionComponent());
 
 
-// create arena
-const floor = engine.addEntity('floorEntity');
-floor.addComponent(new C.PositionComponent(0, -5, 0)); // center at y=-5 so top surface sits at y=0
-const floorGeo = new THREE.CylinderGeometry(ARENA_RADIUS - WALL_THICKNESS / 2, ARENA_RADIUS - WALL_THICKNESS / 2, 10, 64);
-const floorMat = new THREE.MeshStandardMaterial({ color: SAND_COLOR });
-floor.addComponent(new C.MeshComponent(new THREE.Mesh(floorGeo, floorMat)));
-floor.addComponent(new C.CollisionComponent(ARENA_RADIUS - WALL_THICKNESS / 2, 5, ARENA_RADIUS - WALL_THICKNESS / 2));
-
-floor.receiveShadow = true;
+// arena floor + arch models created in world.js
 
 // debug axes (red=X, green=Y, blue=Z)
 const axisLen = 10, axisR = 0.08;
@@ -91,6 +83,9 @@ for (const { color, pos, rot } of axisDefs) {
     mesh.rotation.set(...rot);
     engine.scene.add(mesh);
 }
+
+// load world models
+loadWorld(engine);
 
 // run
 engine.run();
