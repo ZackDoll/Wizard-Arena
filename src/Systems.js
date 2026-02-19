@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'; //unneeded?
-import { getHitbox } from './utils.js';
+import { getOBB, projectOBB, obbAxes, satOBB } from './utils.js';
 
 const GRAVITY    = 20;  // units/sec²
 const JUMP_FORCE = 13;   // units/sec
-const GROUND_Y   = 1;   // floor (y=0) + half entity height (1)
 
 export class System {
     constructor() {
@@ -43,7 +42,6 @@ export class InputSystem extends System {
 
     update(em, delta) {
         // deltas are reset by whichever system consumes them (e.g. CameraControlSystem)
-        console.log(this.keys)
     }
 }
 
@@ -180,11 +178,11 @@ export class MovementSystem extends System {
     }
 }
 
+
 export class CollisionSystem extends System {
-    constructor(camera, floor, collidableObjects) {
+    constructor() {
         super();
     }
-
 
     update(em, delta) {
         const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent');
@@ -195,67 +193,48 @@ export class CollisionSystem extends System {
                 const a = entities[i];
                 const b = entities[j];
 
-                const boxA = getHitbox(a);
-                const boxB = getHitbox(b);
+                const obbA = getOBB(a);
+                const obbB = getOBB(b);
 
-                if (!boxA.intersectsBox(boxB)) continue;
+                const mtv = satOBB(obbA, obbB);
+                if (!mtv) continue;
 
-                //if there is a collision, find minimum translation vector to resolve it
-                const centerA = boxA.getCenter(new THREE.Vector3());
-                const centerB = boxB.getCenter(new THREE.Vector3());
-                const sizeA   = boxA.getSize(new THREE.Vector3()).multiplyScalar(0.5);
-                const sizeB   = boxB.getSize(new THREE.Vector3()).multiplyScalar(0.5);
-
-                //overlaps for all directions
-                const overlapX = (sizeA.x + sizeB.x) - Math.abs(centerA.x - centerB.x);
-                const overlapY = (sizeA.y + sizeB.y) - Math.abs(centerA.y - centerB.y);
-                const overlapZ = (sizeA.z + sizeB.z) - Math.abs(centerA.z - centerB.z);
-
-                //resolve on axis with min translation dist (if negative ignore they aint touching)
-                let pushX = 0, pushY = 0, pushZ = 0;
-                if (overlapX <= overlapY && overlapX <= overlapZ) {
-                    pushX = Math.sign(centerA.x - centerB.x) * overlapX;
-                } else if (overlapY <= overlapX && overlapY <= overlapZ) {
-                    pushY = Math.sign(centerA.y - centerB.y) * overlapY;
-                } else {
-                    pushZ = Math.sign(centerA.z - centerB.z) * overlapZ;
-                }
-                
-                //if one of them static, move other fully, else, split push between 2, if both static, how the fuck are they colliding
                 const aDynamic = !!a.getComponent('VelocityComponent');
                 const bDynamic = !!b.getComponent('VelocityComponent');
+
+                // Y is dominant when the MTV is more vertical than horizontal
+                const yDominant = Math.abs(mtv.y) > Math.abs(mtv.x) && Math.abs(mtv.y) > Math.abs(mtv.z);
 
                 if (aDynamic && bDynamic) {
                     const posA = a.getComponent('PositionComponent').position;
                     const posB = b.getComponent('PositionComponent').position;
-                    if (pushY !== 0) {
-                        // Y collision: only move the entity on top, entity on bottom is considered grounded
-                        if (pushY > 0) {
-                            posA.y += pushY;
+                    if (yDominant) {
+                        // Y collision: only move the entity on top
+                        if (mtv.y > 0) {
+                            posA.y += mtv.y;
                             a.getComponent('VelocityComponent').velocity.y = 0;
                             a.getComponent('PositionComponent').isOnGround = true;
                         } else {
-                            posB.y -= pushY;
+                            posB.y -= mtv.y;
                             b.getComponent('VelocityComponent').velocity.y = 0;
                             b.getComponent('PositionComponent').isOnGround = true;
                         }
                     } else {
-                        // XZ collision: split the push between both
-                        posA.x += pushX * 0.5;  posA.z += pushZ * 0.5;
-                        posB.x -= pushX * 0.5;  posB.z -= pushZ * 0.5;
+                        // XZ collision: split push between both
+                        posA.x += mtv.x * 0.5;  posA.z += mtv.z * 0.5;
+                        posB.x -= mtv.x * 0.5;  posB.z -= mtv.z * 0.5;
                     }
-                    //Y collision, thing on top is movable thing on bottom is static
                 } else if (aDynamic) {
                     const posA = a.getComponent('PositionComponent').position;
-                    posA.x += pushX;  posA.y += pushY;  posA.z += pushZ;
-                    if (pushY > 0) {// A landed on top of B
+                    posA.add(mtv);
+                    if (mtv.y > 0) { // A landed on top of B
                         a.getComponent('VelocityComponent').velocity.y = 0;
                         a.getComponent('PositionComponent').isOnGround = true;
                     }
                 } else if (bDynamic) {
                     const posB = b.getComponent('PositionComponent').position;
-                    posB.x -= pushX;  posB.y -= pushY;  posB.z -= pushZ;
-                    if (pushY < 0) {// B landed on top of A
+                    posB.sub(mtv);
+                    if (mtv.y < 0) { // B landed on top of A
                         b.getComponent('VelocityComponent').velocity.y = 0;
                         b.getComponent('PositionComponent').isOnGround = true;
                     }
@@ -275,12 +254,13 @@ export class GravitySystem extends System {
             const posComp = e.getComponent('PositionComponent');
             const vel = e.getComponent('VelocityComponent').velocity;
 
+            posComp.isOnGround = false; // reset each frame; CollisionSystem sets true if grounded
+
             // apply gravity
             vel.y -= GRAVITY * delta;
 
             // apply vertical velocity to position
             posComp.position.y += vel.y * delta;
-
         }
     }
 }
