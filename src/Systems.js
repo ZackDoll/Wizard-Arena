@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'; //unneeded?
-import { getOBB, projectOBB, obbAxes, satOBB } from './utils.js';
+import { getHitbox } from './utils.js';
 
 const GRAVITY    = 20;  // units/sec²
 const JUMP_FORCE = 13;   // units/sec
+const GROUND_Y   = 1;   // floor (y=0) + half entity height (1)
 
 export class System {
     constructor() {
@@ -99,28 +99,15 @@ export class CameraControlSystem {
     const keys = this.inputSystem.keys;
 
     // IJKL keys rotate the camera
-    // if (keys['KeyI']) this.pitch += this.rotSpeed * delta;
-    // if (keys['KeyK']) this.pitch -= this.rotSpeed * delta;
-    // if (keys['KeyJ']) this.yaw   += this.rotSpeed * delta;
-    // if (keys['KeyL']) this.yaw   -= this.rotSpeed * delta;
+    if (keys['KeyI']) this.pitch += this.rotSpeed * delta;
+    if (keys['KeyK']) this.pitch -= this.rotSpeed * delta;
+    if (keys['KeyJ']) this.yaw   += this.rotSpeed * delta;
+    if (keys['KeyL']) this.yaw   -= this.rotSpeed * delta;
 
     const sensitivity = 0.002;
     if (this.inputSystem.mouse.locked) {
-        const deltaThreshold = 200;
-        let dx = this.inputSystem.mouse.dx;
-        let dy = this.inputSystem.mouse.dy;
-        const deltaOverThreshold = Math.abs(dx) > deltaThreshold || Math.abs(dy) > deltaThreshold;
-        
-        if (deltaOverThreshold && !this.lastFrameOverThreshold) {
-            // don't apply delta on first frame where it exceeds threshold to prevent camera jumps.
-            // if next frames are also over delta threshold meaning user intentionally moves mouse fast, then apply deltas
-            dx = 0;
-            dy = 0;
-        } 
-        this.lastFrameOverThreshold = deltaOverThreshold;
-        
-        this.yaw   -= dx * sensitivity;
-        this.pitch -= dy * sensitivity;
+        this.yaw   -= this.inputSystem.mouse.dx * sensitivity;
+        this.pitch -= this.inputSystem.mouse.dy * sensitivity;
     }
     // consume deltas so they don't carry over to the next frame
     this.inputSystem.mouse.dx = 0;
@@ -191,11 +178,11 @@ export class MovementSystem extends System {
     }
 }
 
-
 export class CollisionSystem extends System {
-    constructor() {
+    constructor(camera, floor, collidableObjects) {
         super();
     }
+
 
     update(em, delta) {
         const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent');
@@ -206,48 +193,67 @@ export class CollisionSystem extends System {
                 const a = entities[i];
                 const b = entities[j];
 
-                const obbA = getOBB(a);
-                const obbB = getOBB(b);
+                const boxA = getHitbox(a);
+                const boxB = getHitbox(b);
 
-                const mtv = satOBB(obbA, obbB);
-                if (!mtv) continue;
+                if (!boxA.intersectsBox(boxB)) continue;
 
+                //if there is a collision, find minimum translation vector to resolve it
+                const centerA = boxA.getCenter(new THREE.Vector3());
+                const centerB = boxB.getCenter(new THREE.Vector3());
+                const sizeA   = boxA.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+                const sizeB   = boxB.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+
+                //overlaps for all directions
+                const overlapX = (sizeA.x + sizeB.x) - Math.abs(centerA.x - centerB.x);
+                const overlapY = (sizeA.y + sizeB.y) - Math.abs(centerA.y - centerB.y);
+                const overlapZ = (sizeA.z + sizeB.z) - Math.abs(centerA.z - centerB.z);
+
+                //resolve on axis with min translation dist (if negative ignore they aint touching)
+                let pushX = 0, pushY = 0, pushZ = 0;
+                if (overlapX <= overlapY && overlapX <= overlapZ) {
+                    pushX = Math.sign(centerA.x - centerB.x) * overlapX;
+                } else if (overlapY <= overlapX && overlapY <= overlapZ) {
+                    pushY = Math.sign(centerA.y - centerB.y) * overlapY;
+                } else {
+                    pushZ = Math.sign(centerA.z - centerB.z) * overlapZ;
+                }
+                
+                //if one of them static, move other fully, else, split push between 2, if both static, how the fuck are they colliding
                 const aDynamic = !!a.getComponent('VelocityComponent');
                 const bDynamic = !!b.getComponent('VelocityComponent');
-
-                // Y is dominant when the MTV is more vertical than horizontal
-                const yDominant = Math.abs(mtv.y) > Math.abs(mtv.x) && Math.abs(mtv.y) > Math.abs(mtv.z);
 
                 if (aDynamic && bDynamic) {
                     const posA = a.getComponent('PositionComponent').position;
                     const posB = b.getComponent('PositionComponent').position;
-                    if (yDominant) {
-                        // Y collision: only move the entity on top
-                        if (mtv.y > 0) {
-                            posA.y += mtv.y;
+                    if (pushY !== 0) {
+                        // Y collision: only move the entity on top, entity on bottom is considered grounded
+                        if (pushY > 0) {
+                            posA.y += pushY;
                             a.getComponent('VelocityComponent').velocity.y = 0;
                             a.getComponent('PositionComponent').isOnGround = true;
                         } else {
-                            posB.y -= mtv.y;
+                            posB.y -= pushY;
                             b.getComponent('VelocityComponent').velocity.y = 0;
                             b.getComponent('PositionComponent').isOnGround = true;
                         }
                     } else {
-                        // XZ collision: split push between both
-                        posA.x += mtv.x * 0.5;  posA.z += mtv.z * 0.5;
-                        posB.x -= mtv.x * 0.5;  posB.z -= mtv.z * 0.5;
+                        // XZ collision: split the push between both
+                        posA.x += pushX * 0.5;  posA.z += pushZ * 0.5;
+                        posB.x -= pushX * 0.5;  posB.z -= pushZ * 0.5;
                     }
+                    //Y collision, thing on top is movable thing on bottom is static
                 } else if (aDynamic) {
                     const posA = a.getComponent('PositionComponent').position;
-                    posA.add(mtv);
-                    if (mtv.y > 0) { // A landed on top of B
+                    posA.x += pushX;  posA.y += pushY;  posA.z += pushZ;
+                    if (pushY > 0) {// A landed on top of B
                         a.getComponent('VelocityComponent').velocity.y = 0;
                         a.getComponent('PositionComponent').isOnGround = true;
                     }
                 } else if (bDynamic) {
                     const posB = b.getComponent('PositionComponent').position;
-                    posB.sub(mtv);
-                    if (mtv.y < 0) { // B landed on top of A
+                    posB.x -= pushX;  posB.y -= pushY;  posB.z -= pushZ;
+                    if (pushY < 0) {// B landed on top of A
                         b.getComponent('VelocityComponent').velocity.y = 0;
                         b.getComponent('PositionComponent').isOnGround = true;
                     }
@@ -267,17 +273,57 @@ export class GravitySystem extends System {
             const posComp = e.getComponent('PositionComponent');
             const vel = e.getComponent('VelocityComponent').velocity;
 
-            posComp.isOnGround = false; // reset each frame; CollisionSystem sets true if grounded
-
             // apply gravity
             vel.y -= GRAVITY * delta;
 
             // apply vertical velocity to position
             posComp.position.y += vel.y * delta;
+
+            // ground clamp
+            if (posComp.position.y <= GROUND_Y) {
+                posComp.position.y = GROUND_Y;
+                vel.y = 0;
+                posComp.isOnGround = true;
+            } else {
+                posComp.isOnGround = false;
+            }
         }
     }
 }
 
+export class SpawnSystem extends System {
+    constructor(camera, inputSystem, spawnQueue) {
+        super();
+        this.camera = camera;
+        this.inputSystem = inputSystem;
+        this.spawnQueue = spawnQueue;
+    }
 
+    update(em, delta) {
+        if (this.inputSystem.mouse.buttons & 1) { // left click held
+            const direction = new THREE.Vector3();
+            this.camera.getWorldDirection(direction); // unit vector pointing where camera faces
 
+            const origin = this.camera.position.clone().addScaledVector(direction, 1);
 
+            this.spawnQueue.push({ type: 'fireball', origin, direction });
+        }
+    }
+}
+
+export class LifespanSystem extends System {
+    constructor(destroyQueue) {
+        super();
+        this.destroyQueue = destroyQueue;
+    }
+
+    update(em, delta) {
+        for (const e of em.getWithComponentName('LifespanComponent')) {
+            const lifespanComp = e.getComponent('LifespanComponent');
+            lifespanComp.decrement(delta);
+            if (lifespanComp.secondsLeft <= 0) {
+                this.destroyQueue.push(e.id);
+            }
+        }
+    }
+}

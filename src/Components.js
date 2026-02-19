@@ -7,17 +7,17 @@ export class Component {
 }
 
 export class PositionComponent extends Component {
-    constructor(x = 0, y = 0, z = 0) {
+    constructor(vec = new THREE.Vector3()) {
         super();
-        this.position = new THREE.Vector3(x, y, z);
+        this.position = vec;
         this.isOnGround = false;
     }
 }
 
 export class VelocityComponent extends Component {
-    constructor(vx = 0, vy = 0, vz = 0) {
+    constructor(vec = new THREE.Vector3()) {
         super();
-        this.velocity = new THREE.Vector3(vx, vy, vz);
+        this.velocity = vec;
     }
 }
 
@@ -78,3 +78,13 @@ export class GravityComponent extends Component {
     }
 }
 
+export class LifespanComponent extends Component {
+    constructor(secs) {
+        super();
+        this.secondsLeft = secs;
+    }
+
+    decrement(delta) {
+        this.secondsLeft -= delta
+    }
+}

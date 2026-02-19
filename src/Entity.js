@@ -1,11 +1,9 @@
-import * as THREE from 'three'
-import * as Component from './Components.js'
-
 export class Entity {
     constructor(type, id) {
         this.id = id;
         this.type = type;
         this.components = {};
+        this.active = true;
     }
 
     addComponent(component) {

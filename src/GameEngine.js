@@ -23,6 +23,8 @@ export class GameEngine {
         // game state
         this.systems = {};
         this.EM = new EntityManager();
+        this.spawnQueue = [];
+        this.destroyQueue = [];
         this.clock = new THREE.Clock();
 
         // setup window resize logic
@@ -75,6 +77,27 @@ export class GameEngine {
     update() {
         const delta = this.clock.getDelta();
         Object.values(this.systems).forEach(system => system.update(this.EM, delta));
+        if (this.spawnQueue.length > 0 || this.destroyQueue.length > 0) {
+            this.processQueues();
+            this.spawnQueue.length = 0;
+            this.destroyQueue.length = 0;
+        }
+    }
+
+    processQueues() {
+        for (const req of this.spawnQueue) {
+            if (req.type === 'fireball') {
+                this.EM.spawnFireball(req.origin, req.direction);
+            }
+        }
+
+        for (const id of this.destroyQueue) {
+            const entity = this.EM.getWithID(id);
+            if (!entity) continue;
+            const meshComp = entity.getComponent('MeshComponent');
+            if (meshComp && meshComp.mesh) this.scene.remove(meshComp.mesh);
+            this.EM.remove(id);
+        }
     }
 
 }

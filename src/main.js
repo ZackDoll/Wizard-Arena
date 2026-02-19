@@ -26,18 +26,21 @@ engine.addSystem(new S.CameraControlSystem(engine.camera, engine.systems['InputS
 engine.addSystem(new S.MovementSystem(engine.systems['InputSystem'], engine.camera));
 engine.addSystem(new S.GravitySystem());
 engine.addSystem(new S.CollisionSystem());
+engine.addSystem(new S.SpawnSystem(engine.camera, engine.systems['InputSystem'], engine.spawnQueue));
+engine.addSystem(new S.LifespanSystem(engine.destroyQueue));
+
 
 // create and add entities to engine
 
 // create wizard (must be first entity)
-const wizard = engine.addEntity('wizardEntity');
+const wizard = engine.addEntity('wizard');
 wizard.addComponent(new C.InputComponent());
 const wizardGeo = new THREE.BoxGeometry(1, 2, 1);
 const wizardMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
 const wizardMesh = new THREE.Mesh(wizardGeo, wizardMat);
 wizard.addComponent(new C.MeshComponent(wizardMesh));
-wizard.addComponent(new C.PositionComponent(0, 1, 0));
-wizard.addComponent(new C.VelocityComponent());
+wizard.addComponent(new C.PositionComponent(new THREE.Vector3(0, 2, 0)));
+wizard.addComponent(new C.VelocityComponent(new THREE.Vector3()));
 wizard.addComponent(new C.GravityComponent());
 
 wizard.addComponent(new C.CollisionComponent());
@@ -45,23 +48,23 @@ wizard.addComponent(new C.CollisionComponent());
 // wizard.addComponent(new C.HealthComponent());
 
 // create test zombie
-const zombie = engine.addEntity('zombieEntity');
+const zombie = engine.addEntity('zombie');
 // zombie.addComponent(new C.InputComponent());
 const zombieGeo = new THREE.BoxGeometry(1, 2, 1);
 const zombieMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
 const zombieMesh = new THREE.Mesh(zombieGeo, zombieMat);
 zombie.addComponent(new C.MeshComponent(zombieMesh));
-zombie.addComponent(new C.PositionComponent(0, 1, -5));
-zombie.addComponent(new C.VelocityComponent());
+zombie.addComponent(new C.PositionComponent(new THREE.Vector3(0, 1, -5)));
+zombie.addComponent(new C.VelocityComponent(new THREE.Vector3()));
 zombie.addComponent(new C.CollisionComponent());
 
 //nonmoving box to test static collisions
-const staticBox = engine.addEntity('staticBoxEntity');
+const staticBox = engine.addEntity('staticBox');
 const staticBoxGeo = new THREE.BoxGeometry(1, 2, 1);
 const staticBoxMat = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
 const staticBoxMesh = new THREE.Mesh(staticBoxGeo, staticBoxMat);
 staticBox.addComponent(new C.MeshComponent(staticBoxMesh));
-staticBox.addComponent(new C.PositionComponent(0, 1, -10));
+staticBox.addComponent(new C.PositionComponent(new THREE.Vector3(0, 1, -10)));
 staticBox.addComponent(new C.CollisionComponent());
 
 
@@ -89,4 +92,3 @@ loadWorld(engine);
 
 // run
 engine.run();
-

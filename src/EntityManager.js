@@ -1,5 +1,5 @@
 import { Entity } from './Entity'
-
+import { fireballComponents } from './Factories/FireballFactory'
 export class EntityManager {
     constructor() {
         this._entities = [];
@@ -28,5 +28,10 @@ export class EntityManager {
 
     getWithID(id) {
         return this._entities.filter(e => e.id == id)[0];
+    }
+
+    spawnFireball(origin, direction) {
+        const fireball = this.create('fireball');
+        fireballComponents(fireball, origin, direction);
     }
 }
