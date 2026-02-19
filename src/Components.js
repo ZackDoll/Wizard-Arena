@@ -22,9 +22,9 @@ export class VelocityComponent extends Component {
 }
 
 export class CollisionComponent extends Component {
-    constructor(radius = 0.5) {
+    constructor(halfX = 0.5, halfY = 1, halfZ = 0.5) {
         super();
-        this.radius = radius;
+        this.half = new THREE.Vector3(halfX, halfY, halfZ);
     }
 }
 
@@ -70,3 +70,10 @@ export class RotationComponent extends Component {
         this.roll = roll;
     }
 }
+
+export class GravityComponent extends Component {
+    constructor() {
+        super();
+    }
+}
+
