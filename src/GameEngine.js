@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { EntityManager } from './EntityManager.js';
-import * as S from './Systems.js'
 
 export class GameEngine {
     constructor(canvasElement){

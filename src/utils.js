@@ -1,15 +1,6 @@
 import * as THREE from 'three';
 import { OBB } from 'three/examples/jsm/math/OBB.js';
 
-export function getHitbox(entity) {
-    const pos  = entity.getComponent('PositionComponent').position;
-    const half = entity.getComponent('CollisionComponent').half;
-    return new THREE.Box3(
-        new THREE.Vector3(pos.x - half.x, pos.y - half.y, pos.z - half.z),
-        new THREE.Vector3(pos.x + half.x, pos.y + half.y, pos.z + half.z)
-    );
-}
-
 export function getOBB(entity) {
     const pos = entity.getComponent('PositionComponent').position;
     const col = entity.getComponent('CollisionComponent');
