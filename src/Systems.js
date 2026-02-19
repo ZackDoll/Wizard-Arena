@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'; //unneeded?
+import { getHitbox } from './utils.js';
+
+const GRAVITY    = 20;  // units/sec²
+const JUMP_FORCE = 13;   // units/sec
+const GROUND_Y   = 1;   // floor (y=0) + half entity height (1)
 
 export class System {
     constructor() {
@@ -15,8 +20,8 @@ export class InputSystem extends System {
         super();
         this.keys = {
             'KeyW': false,
-            'KeyS': false,
             'KeyA': false,
+            'KeyS': false,
             'KeyD': false
         };
         // accumulated mouse movement since last frame
@@ -38,6 +43,7 @@ export class InputSystem extends System {
 
     update(em, delta) {
         // deltas are reset by whichever system consumes them (e.g. CameraControlSystem)
+        console.log(this.keys)
     }
 }
 
@@ -136,7 +142,8 @@ export class MovementSystem extends System {
     update(em, delta) {
         for (const e of em.getWithComponentName('PositionComponent', 'VelocityComponent')) {
 
-            const pos = e.getComponent('PositionComponent').position;
+            const posComp = e.getComponent('PositionComponent');
+            const pos = posComp.position;
             const vel = e.getComponent('VelocityComponent').velocity;
 
             if (e.getComponent('InputComponent')) {
@@ -154,92 +161,138 @@ export class MovementSystem extends System {
                 right.y = 0;
                 right.normalize();
 
-                // combine forward/strafe into a single direction, then normalize
-                // so diagonal movement isn't faster than cardinal movement
-                vel.set(0, 0, 0)
-                   .addScaledVector(forward, fwd)
-                   .addScaledVector(right, side);
+                //XZ movement
+                const move = new THREE.Vector3()
+                    .addScaledVector(forward, fwd)
+                    .addScaledVector(right, side);
 
-                if (vel.lengthSq() > 0) vel.normalize();
+                if (move.lengthSq() > 0) move.normalize();
+                pos.addScaledVector(move, this.inputVel * delta);
+
+                //can jump when grounded and space is pressed
+                if (this.keys['Space'] && posComp.isOnGround) {
+                    vel.y = JUMP_FORCE;
+                }
+            } else {
+                pos.addScaledVector(vel, delta);
             }
-
-            pos.addScaledVector(vel, this.inputVel * delta);
         }
     }
 }
 
-export class CollisionSystem extends System { // TODO
+export class CollisionSystem extends System {
     constructor(camera, floor, collidableObjects) {
         super();
-        this.camera            = camera;
-        this.floor             = floor;
-        this.collidableObjects = collidableObjects;
-        this._grid             = new SpatialGrid({ cellSize: 4 });
-        this._boxCache         = new Map();
+    }
+
+
+    update(em, delta) {
+        const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent');
+
+        //TODO: Replace with spatial grid
+        for (let i = 0; i < entities.length; i++) {
+            for (let j = i + 1; j < entities.length; j++) {
+                const a = entities[i];
+                const b = entities[j];
+
+                const boxA = getHitbox(a);
+                const boxB = getHitbox(b);
+
+                if (!boxA.intersectsBox(boxB)) continue;
+
+                //if there is a collision, find minimum translation vector to resolve it
+                const centerA = boxA.getCenter(new THREE.Vector3());
+                const centerB = boxB.getCenter(new THREE.Vector3());
+                const sizeA   = boxA.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+                const sizeB   = boxB.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+
+                //overlaps for all directions
+                const overlapX = (sizeA.x + sizeB.x) - Math.abs(centerA.x - centerB.x);
+                const overlapY = (sizeA.y + sizeB.y) - Math.abs(centerA.y - centerB.y);
+                const overlapZ = (sizeA.z + sizeB.z) - Math.abs(centerA.z - centerB.z);
+
+                //resolve on axis with min translation dist (if negative ignore they aint touching)
+                let pushX = 0, pushY = 0, pushZ = 0;
+                if (overlapX <= overlapY && overlapX <= overlapZ) {
+                    pushX = Math.sign(centerA.x - centerB.x) * overlapX;
+                } else if (overlapY <= overlapX && overlapY <= overlapZ) {
+                    pushY = Math.sign(centerA.y - centerB.y) * overlapY;
+                } else {
+                    pushZ = Math.sign(centerA.z - centerB.z) * overlapZ;
+                }
+                
+                //if one of them static, move other fully, else, split push between 2, if both static, how the fuck are they colliding
+                const aDynamic = !!a.getComponent('VelocityComponent');
+                const bDynamic = !!b.getComponent('VelocityComponent');
+
+                if (aDynamic && bDynamic) {
+                    const posA = a.getComponent('PositionComponent').position;
+                    const posB = b.getComponent('PositionComponent').position;
+                    if (pushY !== 0) {
+                        // Y collision: only move the entity on top, entity on bottom is considered grounded
+                        if (pushY > 0) {
+                            posA.y += pushY;
+                            a.getComponent('VelocityComponent').velocity.y = 0;
+                            a.getComponent('PositionComponent').isOnGround = true;
+                        } else {
+                            posB.y -= pushY;
+                            b.getComponent('VelocityComponent').velocity.y = 0;
+                            b.getComponent('PositionComponent').isOnGround = true;
+                        }
+                    } else {
+                        // XZ collision: split the push between both
+                        posA.x += pushX * 0.5;  posA.z += pushZ * 0.5;
+                        posB.x -= pushX * 0.5;  posB.z -= pushZ * 0.5;
+                    }
+                    //Y collision, thing on top is movable thing on bottom is static
+                } else if (aDynamic) {
+                    const posA = a.getComponent('PositionComponent').position;
+                    posA.x += pushX;  posA.y += pushY;  posA.z += pushZ;
+                    if (pushY > 0) {// A landed on top of B
+                        a.getComponent('VelocityComponent').velocity.y = 0;
+                        a.getComponent('PositionComponent').isOnGround = true;
+                    }
+                } else if (bDynamic) {
+                    const posB = b.getComponent('PositionComponent').position;
+                    posB.x -= pushX;  posB.y -= pushY;  posB.z -= pushZ;
+                    if (pushY < 0) {// B landed on top of A
+                        b.getComponent('VelocityComponent').velocity.y = 0;
+                        b.getComponent('PositionComponent').isOnGround = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export class GravitySystem extends System {
+    constructor() {
+        super();
     }
 
     update(em, delta) {
-        const cam   = this.camera;
-        const cache = this._boxCache;
+        for (const e of em.getWithComponentName('PositionComponent', 'VelocityComponent', 'GravityComponent')) {
+            const posComp = e.getComponent('PositionComponent');
+            const vel = e.getComponent('VelocityComponent').velocity;
 
-        for (const e of em.getWithComponentName('TransformComponent', 'ShapeComponent', 'CollisionComponent')) {
-            const t           = e.getComponent('TransformComponent');
-            const collisionBox = e.getComponent('ShapeComponent').mesh;
+            // apply gravity
+            vel.y -= GRAVITY * delta;
 
-            // Sync collision box to camera
-            collisionBox.position.copy(cam.position);
-            collisionBox.updateMatrixWorld(true);
+            // apply vertical velocity to position
+            posComp.position.y += vel.y * delta;
 
-            // Build spatial grid
-            cache.clear();
-            for (const obj of this.collidableObjects) {
-                cache.set(obj, new THREE.Box3().setFromObject(obj));
+            // ground clamp
+            if (posComp.position.y <= GROUND_Y) {
+                posComp.position.y = GROUND_Y;
+                vel.y = 0;
+                posComp.isOnGround = true;
+            } else {
+                posComp.isOnGround = false;
             }
-            this._grid.clear();
-            for (const obj of this.collidableObjects) {
-                this._grid.insert(obj, cache.get(obj));
-            }
-
-            const old        = t.prevPosition;
-            const dx         = cam.position.x - old.x;
-            const dy         = cam.position.y - old.y;
-            const dz         = cam.position.z - old.z;
-            const playerBox  = cache.get(collisionBox);
-            const candidates = this._grid.query(playerBox);
-
-            const boxCollides = (box) => {
-                for (const c of candidates) {
-                    if (c !== collisionBox && box.intersectsBox(cache.get(c))) return true;
-                }
-                return false;
-            };
-
-            const xCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(0,   -dy, -dz)));
-            const yCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(-dx,  0,  -dz)));
-            const zCollides = boxCollides(playerBox.clone().translate(new THREE.Vector3(-dx, -dy,  0)));
-
-            if (xCollides) cam.position.x = old.x;
-            if (yCollides) {
-                t.velocity.y = 0;
-                cam.position.y = old.y;
-                t.isOnGround = true;
-            }
-            if (zCollides) cam.position.z = old.z;
-
-            // Ground clamp
-            const groundY = this.floor.position.y + 1.7;
-            if (cam.position.y <= groundY) {
-                cam.position.y = groundY;
-                t.velocity.y = 0;
-                t.isOnGround = true;
-            }
-
-            // Final sync
-            collisionBox.position.copy(cam.position);
-            t.position.copy(cam.position);
         }
     }
 }
+
 
 
 
