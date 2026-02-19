@@ -67,11 +67,11 @@ staticBox.addComponent(new C.CollisionComponent());
 
 // create arena
 const floor = engine.addEntity('floorEntity');
-floor.addComponent(new C.PositionComponent(0,0,0));
-const floorGeo = new THREE.CircleGeometry(ARENA_RADIUS - WALL_THICKNESS / 2, 64);
+floor.addComponent(new C.PositionComponent(0, -5, 0)); // center at y=-5 so top surface sits at y=0
+const floorGeo = new THREE.CylinderGeometry(ARENA_RADIUS - WALL_THICKNESS / 2, ARENA_RADIUS - WALL_THICKNESS / 2, 10, 64);
 const floorMat = new THREE.MeshStandardMaterial({ color: SAND_COLOR });
 floor.addComponent(new C.MeshComponent(new THREE.Mesh(floorGeo, floorMat)));
-floor.addComponent(new C.RotationComponent(-Math.PI / 2, 0, 0));
+floor.addComponent(new C.CollisionComponent(ARENA_RADIUS - WALL_THICKNESS / 2, 5, ARENA_RADIUS - WALL_THICKNESS / 2));
 
 floor.receiveShadow = true;
 
