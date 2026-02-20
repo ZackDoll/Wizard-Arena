@@ -289,14 +289,7 @@ export class GravitySystem extends System {
             // apply vertical velocity to position
             posComp.position.y += vel.y * delta;
 
-            // ground clamp
-            if (posComp.position.y <= GROUND_Y) {
-                posComp.position.y = GROUND_Y;
-                vel.y = 0;
-                posComp.isOnGround = true;
-            } else {
-                posComp.isOnGround = false;
-            }
+            
         }
     }
 }

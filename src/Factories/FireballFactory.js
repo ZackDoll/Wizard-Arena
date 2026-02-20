@@ -7,6 +7,7 @@ import {
     MeshComponent,
     LifespanComponent,
     CombustibleComponent,
+    GravityComponent
 } from '../Components.js';
 
 const FIREBALL_SPEED = 15;
