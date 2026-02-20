@@ -48,15 +48,7 @@ wizard.addComponent(new C.CollisionComponent());
 // wizard.addComponent(new C.HealthComponent());
 
 // create test zombie
-const zombie = engine.addEntity('zombieEntity');
-// zombie.addComponent(new C.InputComponent());
-const zombieGeo = new THREE.BoxGeometry(1, 2, 1);
-const zombieMat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
-const zombieMesh = new THREE.Mesh(zombieGeo, zombieMat);
-zombie.addComponent(new C.MeshComponent(zombieMesh));
-zombie.addComponent(new C.PositionComponent(new THREE.Vector3(0, 1, -5)));
-zombie.addComponent(new C.VelocityComponent(new THREE.Vector3()));
-zombie.addComponent(new C.CollisionComponent());
+engine.EM.spawnZombie(new THREE.Vector3(0, 1, -20));
 
 //nonmoving box to test static collisions
 const staticBox = engine.addEntity('staticBoxEntity');

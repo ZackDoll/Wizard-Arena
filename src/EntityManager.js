@@ -1,5 +1,6 @@
 import { Entity } from './Entity'
 import { fireballComponents } from './Factories/FireballFactory'
+import { zombieComponents } from './Factories/ZombieFactory';
 export class EntityManager {
     constructor() {
         this._entities = [];
@@ -33,5 +34,10 @@ export class EntityManager {
     spawnFireball(origin, direction) {
         const fireball = this.create('fireball');
         fireballComponents(fireball, origin, direction);
+    }
+
+    spawnZombie(spawnLocation) {
+        const zombie = this.create('zombie');
+        zombieComponents(zombie, spawnLocation);
     }
 }
