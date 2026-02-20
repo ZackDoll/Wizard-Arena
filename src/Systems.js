@@ -106,8 +106,21 @@ export class CameraControlSystem {
 
     const sensitivity = 0.002;
     if (this.inputSystem.mouse.locked) {
-        this.yaw   -= this.inputSystem.mouse.dx * sensitivity;
-        this.pitch -= this.inputSystem.mouse.dy * sensitivity;
+        const deltaThreshold = 200;
+        let dx = this.inputSystem.mouse.dx;
+        let dy = this.inputSystem.mouse.dy;
+        const deltaOverThreshold = Math.abs(dx) > deltaThreshold || Math.abs(dy) > deltaThreshold;
+        
+        if (deltaOverThreshold && !this.lastFrameOverThreshold) {
+            // don't apply delta on first frame where it exceeds threshold to prevent camera jumps.
+            // if next frames are also over delta threshold meaning user intentionally moves mouse fast, then apply deltas
+            dx = 0;
+            dy = 0;
+        } 
+        this.lastFrameOverThreshold = deltaOverThreshold;
+        
+        this.yaw   -= dx * sensitivity;
+        this.pitch -= dy * sensitivity;
     }
     // consume deltas so they don't carry over to the next frame
     this.inputSystem.mouse.dx = 0;
@@ -277,6 +290,7 @@ export class SpawnSystem extends System {
         this.camera = camera;
         this.inputSystem = inputSystem;
         this.spawnQueue = spawnQueue;
+        this.spawnCooldown = 0;
     }
 
     update(em, delta) {
@@ -286,7 +300,11 @@ export class SpawnSystem extends System {
 
             const origin = this.camera.position.clone().addScaledVector(direction, 0.6); // spawn fireball 2*FIREBALL_RADIUS in front of camera
 
-            this.spawnQueue.push({ type: 'fireball', origin, direction });
+            if(this.spawnCooldown <= 0) {
+                console.log("cooldown: " + this.spawnCooldown.toFixed(2) + "s");
+                this.spawnQueue.push({ type: 'fireball', origin, direction });
+            }
+            this.spawnCooldown = (this.spawnCooldown <= 0) ? 0.5 : this.spawnCooldown - delta;
         }
     }
 }
