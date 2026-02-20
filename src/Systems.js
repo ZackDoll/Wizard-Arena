@@ -210,7 +210,6 @@ export class CollisionSystem extends System {
 
                 const mtv = satOBB(obbA, obbB);
                 if (!mtv) continue;
-
                 const aDynamic = !!a.getComponent('VelocityComponent');
                 const bDynamic = !!b.getComponent('VelocityComponent');
 
@@ -325,6 +324,48 @@ export class LifespanSystem extends System {
             lifespanComp.decrement(delta);
             if (lifespanComp.secondsLeft <= 0) {
                 this.destroyQueue.push(e.id);
+            }
+        }
+
+        for (const e of em.getWithComponentName('HealthComponent')) {
+            const healthComp = e.getComponent('HealthComponent');
+            if (healthComp.hp <= 0) {
+                this.destroyQueue.push(e.id);
+            }
+        }
+    }
+}
+
+export class AttackSystem extends System {
+    constructor() {
+        super();
+    }
+
+    update(em, delta) {
+        const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent', 'HealthComponent');
+        for (let i = 0; i < entities.length; i++) {
+            for (let j = i + 1; j < entities.length; j++) {
+                const a = entities[i];
+                const b = entities[j];
+
+                const obbA = getOBB(a);
+                const obbB = getOBB(b);
+
+                const mtv = satOBB(obbA, obbB);
+                if (!mtv) continue;
+                if (a.type == 'fireball' && b.type != 'fireball') {
+                    const aHealthComp = a.getComponent('HealthComponent');
+                    const bHealthComp = b.getComponent('HealthComponent');
+                    aHealthComp.hp -= 1; // fireball gets destroyed on hit
+                    bHealthComp.hp -= 30;
+                    console.log(bHealthComp.hp);
+                } else if (b.type == 'fireball' && a.type != 'fireball') {
+                    const aHealthComp = a.getComponent('HealthComponent');
+                    const bHealthComp = b.getComponent('HealthComponent');
+                    aHealthComp.hp -= 30;
+                    bHealthComp.hp -= 1;
+                    console.log(aHealthComp.hp);
+                }
             }
         }
     }
