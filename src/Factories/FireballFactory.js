@@ -22,6 +22,7 @@ export function preloadFireballModel() {
     const loader = new STLLoader();
     loader.load('/models/Meteor.stl', (geometry) => {
         geometry.computeVertexNormals();
+        geometry.center(); // move geometry so its bounding box center sits at origin
         geometry.computeBoundingSphere();
         const scale = FIREBALL_RADIUS / geometry.boundingSphere.radius;
         geometry.scale(scale, scale, scale);
