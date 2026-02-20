@@ -3,6 +3,7 @@ import { GameEngine } from './GameEngine.js';
 import * as C from './Components.js';
 import * as S from './Systems.js';
 import { loadWorld } from './world.js';
+import { preloadFireballModel } from './Factories/FireballFactory.js';
 
 // CONSTANTS
 const WALL_SEGMENTS = 16;
@@ -82,6 +83,7 @@ for (const { color, pos, rot } of axisDefs) {
 
 // load world models
 loadWorld(engine);
+preloadFireballModel();
 
 // run
 engine.run();
