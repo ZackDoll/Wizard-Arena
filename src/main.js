@@ -25,10 +25,10 @@ engine.addSystem(new S.InputSystem(engine.renderer, engine.camera));
 engine.addSystem(new S.CameraControlSystem(engine.camera, engine.systems['InputSystem']));
 engine.addSystem(new S.MovementSystem(engine.systems['InputSystem'], engine.camera));
 engine.addSystem(new S.GravitySystem());
-engine.addSystem(new S.CollisionSystem());
 engine.addSystem(new S.SpawnSystem(engine.camera, engine.systems['InputSystem'], engine.spawnQueue));
 engine.addSystem(new S.LifespanSystem(engine.destroyQueue));
-engine.addSystem(new S.AttackSystem());
+engine.addSystem(new S.CollisionSystem(engine.destroyQueue));
+// engine.addSystem(new S.AttackSystem());
 
 
 // create and add entities to engine

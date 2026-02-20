@@ -88,3 +88,10 @@ export class LifespanComponent extends Component {
         this.secondsLeft -= delta
     }
 }
+
+export class CombustibleComponent extends Component {
+    constructor() {
+        super();
+    }
+}
+

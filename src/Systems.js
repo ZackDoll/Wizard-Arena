@@ -192,8 +192,9 @@ export class MovementSystem extends System {
 }
 
 export class CollisionSystem extends System {
-    constructor() {
+    constructor(destroyQueue) {
         super();
+        this.destroyQueue = destroyQueue;
     }
 
     update(em, delta) {
@@ -204,6 +205,7 @@ export class CollisionSystem extends System {
             for (let j = i + 1; j < entities.length; j++) {
                 const a = entities[i];
                 const b = entities[j];
+                
 
                 const obbA = getOBB(a);
                 const obbB = getOBB(b);
@@ -249,6 +251,22 @@ export class CollisionSystem extends System {
                         b.getComponent('VelocityComponent').velocity.y = 0;
                         b.getComponent('PositionComponent').isOnGround = true;
                     }
+                }
+                if (a.getComponent('CombustibleComponent') && b.id !== 0){
+                    this.destroyQueue.push(a.id);
+                    if(b.getComponent('HealthComponent')) {
+                        b.getComponent('HealthComponent').hp -= 30;
+                        console.log(b.getComponent('HealthComponent').hp);
+                    }
+                    console.log("combusted", a.id);
+                }
+                if (b.getComponent('CombustibleComponent') && a.id !== 0){
+                    this.destroyQueue.push(b.id);
+                    if(a.getComponent('HealthComponent')) {
+                        a.getComponent('HealthComponent').hp -= 30;
+                        console.log(a.getComponent('HealthComponent').hp);
+                    }
+                    console.log("combusted", b.id);
                 }
             }
         }
@@ -336,37 +354,37 @@ export class LifespanSystem extends System {
     }
 }
 
-export class AttackSystem extends System {
-    constructor() {
-        super();
-    }
+// export class AttackSystem extends System {
+//     constructor() {
+//         super();
+//     }
 
-    update(em, delta) {
-        const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent', 'HealthComponent');
-        for (let i = 0; i < entities.length; i++) {
-            for (let j = i + 1; j < entities.length; j++) {
-                const a = entities[i];
-                const b = entities[j];
+//     update(em, delta) {
+//         const entities = em.getWithComponentName('CollisionComponent', 'PositionComponent', 'HealthComponent');
+//         for (let i = 0; i < entities.length; i++) {
+//             for (let j = i + 1; j < entities.length; j++) {
+//                 const a = entities[i];
+//                 const b = entities[j];
 
-                const obbA = getOBB(a);
-                const obbB = getOBB(b);
+//                 const obbA = getOBB(a);
+//                 const obbB = getOBB(b);
 
-                const mtv = satOBB(obbA, obbB);
-                if (!mtv) continue;
-                if (a.type == 'fireball' && b.type != 'fireball') {
-                    const aHealthComp = a.getComponent('HealthComponent');
-                    const bHealthComp = b.getComponent('HealthComponent');
-                    aHealthComp.hp -= 1; // fireball gets destroyed on hit
-                    bHealthComp.hp -= 30;
-                    console.log(bHealthComp.hp);
-                } else if (b.type == 'fireball' && a.type != 'fireball') {
-                    const aHealthComp = a.getComponent('HealthComponent');
-                    const bHealthComp = b.getComponent('HealthComponent');
-                    aHealthComp.hp -= 30;
-                    bHealthComp.hp -= 1;
-                    console.log(aHealthComp.hp);
-                }
-            }
-        }
-    }
-}
+//                 const mtv = satOBB(obbA, obbB);
+//                 if (!mtv) continue;
+//                 if (a.type == 'fireball' && b.type != 'fireball') {
+//                     const aHealthComp = a.getComponent('HealthComponent');
+//                     const bHealthComp = b.getComponent('HealthComponent');
+//                     aHealthComp.hp -= 1; // fireball gets destroyed on hit
+//                     bHealthComp.hp -= 30;
+//                     console.log(bHealthComp.hp);
+//                 } else if (b.type == 'fireball' && a.type != 'fireball') {
+//                     const aHealthComp = a.getComponent('HealthComponent');
+//                     const bHealthComp = b.getComponent('HealthComponent');
+//                     aHealthComp.hp -= 30;
+//                     bHealthComp.hp -= 1;
+//                     console.log(aHealthComp.hp);
+//                 }
+//             }
+//         }
+//     }
+// }

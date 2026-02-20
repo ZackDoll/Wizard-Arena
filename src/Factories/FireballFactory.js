@@ -6,6 +6,7 @@ import {
     HealthComponent,
     MeshComponent,
     LifespanComponent,
+    CombustibleComponent,
 } from '../Components.js';
 
 const FIREBALL_SPEED = 15;
@@ -19,12 +20,15 @@ export function fireballComponents(entity, origin, direction) {
     const vel = direction.normalize().multiplyScalar(FIREBALL_SPEED);
     entity.addComponent(new VelocityComponent(vel));
 
-    // Sphere-like AABB — equal halves on all axes
+
+    // Sphere-like OBB, equal halves on all axes
     entity.addComponent(new CollisionComponent(new THREE.Vector3(FIREBALL_RADIUS, FIREBALL_RADIUS, FIREBALL_RADIUS)));
 
     entity.addComponent(new HealthComponent(1));
 
     entity.addComponent(new LifespanComponent(FIREBALL_LIFETIME));
+    entity.addComponent(new CombustibleComponent());
+    
 
     const geo = new THREE.SphereGeometry(FIREBALL_RADIUS, 8, 8);
     const mat = new THREE.MeshLambertMaterial({ color: 0xff4400, emissive: 0xff2200, emissiveIntensity: 0.6 });
