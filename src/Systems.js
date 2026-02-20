@@ -291,21 +291,25 @@ export class SpawnSystem extends System {
         this.inputSystem = inputSystem;
         this.spawnQueue = spawnQueue;
         this.spawnCooldown = 0;
+        this.toggleSpawn = true; // used to only spawn one fireball while M1 is held down
     }
 
     update(em, delta) {
-        if (this.inputSystem.mouse.buttons & 1) { // left click held
+        if (this.inputSystem.mouse.buttons == 1 && this.toggleSpawn) { // left click held and toggle is true
+            this.toggleSpawn = false;
             const direction = new THREE.Vector3();
             this.camera.getWorldDirection(direction); // unit vector pointing where camera faces
 
             const origin = this.camera.position.clone().addScaledVector(direction, 0.6); // spawn fireball 2*FIREBALL_RADIUS in front of camera
 
             if(this.spawnCooldown <= 0) {
-                console.log("cooldown: " + this.spawnCooldown.toFixed(2) + "s");
+                this.spawnCooldown = 1.5;
                 this.spawnQueue.push({ type: 'fireball', origin, direction });
             }
-            this.spawnCooldown = (this.spawnCooldown <= 0) ? 0.5 : this.spawnCooldown - delta;
+        } else if (this.inputSystem.mouse.buttons == 0) { // left click released
+            this.toggleSpawn = true;
         }
+        this.spawnCooldown -= delta;
     }
 }
 
