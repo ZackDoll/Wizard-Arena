@@ -1,102 +1,122 @@
-import * as THREE from 'three'
-import { EntityManager } from './EntityManager.js';
+import * as THREE from 'three';
+import { Assets } from './Assets.js';
+import { Action } from './Action.js';
+import { ScenePlay } from './ScenePlay.js';
 
+/**
+ * Top-level game loop controller.
+ *
+ * Responsibilities:
+ * - Creates and owns the Three.js WebGLRenderer.
+ * - Manages the active scene and delegates per-frame update/render calls to it.
+ * - Translates raw DOM input events into Action objects and forwards them to the scene.
+ * - Loads shared assets via the Assets manager.
+ */
 export class GameEngine {
-    constructor(canvasElement){
-        // setup scene
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB);
+    /**
+     * @param {HTMLElement} canvasElement - DOM element to attach the renderer canvas to.
+     * @param {string}      [assetPath=''] - Optional path to an asset manifest file.
+     */
+    constructor(canvasElement, assetPath = "") {
+        this.currentScene = null;
+        this.isRunning    = true;
+        this.clock        = new THREE.Clock();
 
-        // setup camera
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.x = 0;
-        this.camera.position.y = 2;
-        this.camera.position.z = 0;
-        
-        // setup renderer
+        // Renderer must be created before anything that touches domElement.
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         canvasElement.appendChild(this.renderer.domElement);
 
-        // game state
-        this.systems = {};
-        this.EM = new EntityManager();
-        this.spawnQueue = [];
-        this.destroyQueue = [];
-        this.clock = new THREE.Clock();
-
-        // setup window resize logic
-        window.addEventListener('resize', () => this.onWindowResize());
-
-        // click canvas to capture pointer; Escape releases it automatically
+        // Capture pointer on canvas click; Escape releases it automatically.
         this.renderer.domElement.addEventListener('click', () => {
             this.renderer.domElement.requestPointerLock();
         });
 
-        // setup lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
-        this.scene.add(ambientLight);
-        
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        sunLight.position.set(50, 100, 50);
-        sunLight.castShadow = true;
-        this.scene.add(sunLight);
+        window.addEventListener('resize', () => this.onWindowResize());
 
-    }
-    
-    addSystem(system) {
-        this.systems[system.name] = system;
+        this.setUpUserInput();
+
+        // Load shared assets (optional — pass assetPath to use a manifest file).
+        this.assets = new Assets();
+        if (assetPath) this.assets.loadFromFile(assetPath);
+
+        this.changeScene(new ScenePlay(this));
     }
 
-    addEntity(type) {
-        return this.EM.create(type);
+    /**
+     * Replaces the current scene with the given one and calls its init() method.
+     * @param {import('./Scene.js').Scene} scene - The new scene to activate.
+     */
+    changeScene(scene) {
+        this.currentScene = scene;
+        this.currentScene.init();
     }
 
-    animate = () => {
-        requestAnimationFrame(this.animate);
-        this.update();
-        this.renderer.render(this.scene, this.camera);
-    }
-
+    /**
+     * Updates the renderer and camera aspect ratio when the browser window is resized.
+     */
     onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
+        const cam = this.currentScene?.camera;
+        if (cam) {
+            cam.aspect = window.innerWidth / window.innerHeight;
+            cam.updateProjectionMatrix();
+        }
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
-    
-    quit() {
 
-    }
-
+    /**
+     * Starts the game loop. Calls animate() which schedules itself via requestAnimationFrame.
+     */
     run() {
         this.animate();
     }
-    
-    update() {
+
+    /**
+     * Stops the game loop on the next frame.
+     */
+    stop() {
+        this.isRunning = false;
+    }
+
+    /**
+     * Core game loop — called every frame via requestAnimationFrame.
+     * Computes delta time, then delegates update and render to the current scene.
+     */
+    animate = () => {
+        if (!this.isRunning) return;
+        requestAnimationFrame(this.animate);
         const delta = this.clock.getDelta();
-        Object.values(this.systems).forEach(system => system.update(this.EM, delta));
-        if (this.spawnQueue.length > 0 || this.destroyQueue.length > 0) {
-            this.processQueues();
-            this.spawnQueue.length = 0;
-            this.destroyQueue.length = 0;
+        if (this.currentScene) {
+            this.currentScene.update(delta);
+            this.renderer.render(this.currentScene.scene, this.currentScene.camera);
         }
     }
 
-    processQueues() {
-        for (const req of this.spawnQueue) {
-            if (req.type === 'fireball') {
-                this.EM.spawnFireball(req.origin, req.direction);
-            }
-        }
-
-        for (const id of this.destroyQueue) {
-            const entity = this.EM.getWithID(id);
-            if (!entity) continue;
-            const meshComp = entity.getComponent('MeshComponent');
-            if (meshComp && meshComp.mesh) this.scene.remove(meshComp.mesh);
-            this.EM.remove(id);
-        }
+    /**
+     * Registers DOM event listeners for keyboard and mouse input.
+     * Translates each event into an Action and dispatches it to the current scene.
+     */
+    setUpUserInput() {
+        // Translate raw keyboard/mouse events into Action objects and dispatch
+        // them to the current scene's doAction method.
+        document.addEventListener('keydown', (e) => {
+            const actionName = this.currentScene?.actionMap[e.code];
+            if (actionName) this.currentScene.doAction(new Action(actionName, 'start'));
+        });
+        document.addEventListener('keyup', (e) => {
+            const actionName = this.currentScene?.actionMap[e.code];
+            if (actionName) this.currentScene.doAction(new Action(actionName, 'stop'));
+        });
+        document.addEventListener('mousedown', (e) => {
+            const key = `Mouse${e.button}`;
+            const actionName = this.currentScene?.actionMap[key];
+            if (actionName) this.currentScene.doAction(new Action(actionName, 'start'));
+        });
+        document.addEventListener('mouseup', (e) => {
+            const key = `Mouse${e.button}`;
+            const actionName = this.currentScene?.actionMap[key];
+            if (actionName) this.currentScene.doAction(new Action(actionName, 'stop'));
+        });
     }
-
 }

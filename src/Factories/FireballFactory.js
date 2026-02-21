@@ -16,8 +16,14 @@ const FIREBALL_LIFETIME = 1;
 
 const FIREBALL_MAT = new THREE.MeshLambertMaterial({ color: 0xff4400, emissive: 0xff2200, emissiveIntensity: 0.6 });
 
+/** @type {THREE.BufferGeometry|null} Shared meteor geometry; null until preloadFireballModel() resolves. */
 let meteorGeometry = null;
 
+/**
+ * Asynchronously loads the Meteor.stl model and normalizes it to FIREBALL_RADIUS.
+ * Should be called once during scene initialization. Until this resolves,
+ * fireballComponents() will fall back to a SphereGeometry placeholder.
+ */
 export function preloadFireballModel() {
     const loader = new STLLoader();
     loader.load('/models/Meteor.stl', (geometry) => {
@@ -30,9 +36,26 @@ export function preloadFireballModel() {
     }, undefined, (err) => console.error('Failed to load Meteor.stl:', err));
 }
 
-export function fireballComponents(entity, origin, direction) {
+/**
+ * Attaches all components needed for a fireball projectile to the given entity.
+ *
+ * Components added:
+ * - PositionComponent  — world position at spawnLocation
+ * - VelocityComponent  — direction * FIREBALL_SPEED
+ * - CollisionComponent — sphere-approximated OBB
+ * - HealthComponent    — 1 hp (destroyed on first combustible hit)
+ * - LifespanComponent  — auto-destroys after FIREBALL_LIFETIME seconds
+ * - CombustibleComponent — triggers explosion logic on collision
+ * - MeshComponent      — meteor mesh (or sphere fallback) oriented toward direction
+ *
+ * @param {import('../Entity.js').Entity} entity       - Pre-created entity from EntityManager.
+ * @param {THREE.Vector3}                 spawnLocation - World position to spawn at.
+ * @param {THREE.Vector3}                 direction     - Travel direction (will be normalised).
+ * @returns {import('../Entity.js').Entity} The entity with all components attached.
+ */
+export function fireballComponents(entity, spawnLocation, direction) {
 
-    entity.addComponent(new PositionComponent(origin));
+    entity.addComponent(new PositionComponent(spawnLocation));
 
     const vel = direction.normalize().multiplyScalar(FIREBALL_SPEED);
     entity.addComponent(new VelocityComponent(vel));
@@ -45,7 +68,7 @@ export function fireballComponents(entity, origin, direction) {
 
     const geo = meteorGeometry ?? new THREE.SphereGeometry(FIREBALL_RADIUS, 8, 8);
     const mesh = new THREE.Mesh(geo, FIREBALL_MAT);
-    mesh.position.copy(origin);
+    mesh.position.copy(spawnLocation);
     // Orient the mesh so the model's +Z axis points along the travel direction.
     // If the model appears sideways, swap the MODEL_FORWARD axis (try +Y or +X).
     const MODEL_FORWARD = new THREE.Vector3(0, 0, -1);
