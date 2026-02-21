@@ -12,8 +12,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  */
 export class Assets {
     constructor() {
-        this.materialMap = {};
-        this.meshMap = {};
+        this.textureMap = {};
+        this.geometryMap = {};
         this.fontMap = {};
         this.animationMap = {};
         this.soundMap = {};
@@ -31,7 +31,9 @@ export class Assets {
      * @returns {Promise<void>} Resolves when all assets have finished loading.
      */
     async loadFromFile(filePath) {
+        console.log(`Assets: loading from manifest "${filePath}"`);
         const text = await fetch(filePath).then(res => res.text());
+        console.log(`Assets: loaded manifest "${filePath}" with content:\n${text}`);
         const promises = [];
         for (const line of text.split('\n')) {
             const trimmed = line.trim();
@@ -56,7 +58,7 @@ export class Assets {
         return new Promise((resolve) => {
             const texture = this.textureLoader.load(path, resolve, undefined,
                 (err) => console.error(`Assets: failed to load texture "${path}"`, err));
-            this.materialMap[name] = new THREE.MeshStandardMaterial({ map: texture });
+            this.textureMap[name] = new THREE.MeshStandardMaterial({ map: texture });
         });
     }
 
@@ -76,8 +78,9 @@ export class Assets {
                 this.stlLoader.load(path, (geometry) => {
                     geometry.computeVertexNormals();
                     geometry.center();
-                    this.meshMap[name] = geometry;
+                    this.geometryMap[name] = geometry;
                     resolve(geometry);
+                    console.log(`Assets: loaded STL geometry "${name}" from "${path}"`);
                 }, undefined, (err) => {
                     console.error(`Assets: failed to load STL "${path}"`, err);
                     reject(err);
@@ -88,9 +91,10 @@ export class Assets {
         if (ext === 'glb' || ext === 'gltf') {
             return new Promise((resolve, reject) => {
                 this.gltfLoader.load(path, (gltf) => {
-                    this.meshMap[name] = gltf.scene;
+                    this.geometryMap[name] = gltf.scene;
                     if (gltf.animations?.length) this.animationMap[name] = gltf.animations;
                     resolve(gltf.scene);
+                    console.log(`Assets: loaded GLTF model "${name}" from "${path}"`);
                 }, undefined, (err) => {
                     console.error(`Assets: failed to load GLTF "${path}"`, err);
                     reject(err);
@@ -107,14 +111,14 @@ export class Assets {
      * @param {string} name
      * @returns {THREE.MeshStandardMaterial|null}
      */
-    getMaterial(name) { return this.materialMap[name] ?? null; }
+    getMaterial(name) { return this.textureMap[name] ?? null; }
 
     /**
      * Returns the geometry or scene object stored under name, or null if not found.
      * @param {string} name
      * @returns {THREE.BufferGeometry|THREE.Group|null}
      */
-    getGeometry(name) { return this.meshMap[name] ?? null; }
+    getGeometry(name) { return this.geometryMap[name] ?? null; }
 
     /**
      * Returns the animation clips stored for the given name, or null if none exist.

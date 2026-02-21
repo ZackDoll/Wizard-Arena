@@ -1,11 +1,5 @@
 import * as THREE from 'three';
-import {
-    PositionComponent,
-    VelocityComponent,
-    CollisionComponent,
-    HealthComponent,
-    MeshComponent,
-} from '../Components.js';
+import * as C from '../Components.js';
 
 const ZOMBIE_HEALTH = 100;
 const ZOMBIE_SPEED = 1.5;
@@ -24,21 +18,31 @@ const ZOMBIE_SPEED = 1.5;
  * @param {THREE.Vector3}                 spawnLocation - World position to spawn at.
  * @returns {import('../Entity.js').Entity} The entity with all components attached.
  */
-export function zombieComponents(entity, spawnLocation) {
+export function setZombieComponents(data) {
+    const { entity, assets, position, direction } = data;
 
-    entity.addComponent(new PositionComponent(spawnLocation));
+    entity.addComponent(new C.PositionComponent(position));
+    entity.addComponent(new C.VelocityComponent(new THREE.Vector3()));
+    entity.addComponent(new C.CollisionComponent());
+    entity.addComponent(new C.HealthComponent(ZOMBIE_HEALTH));
 
-    entity.addComponent(new VelocityComponent(new THREE.Vector3()));
+    let geo = new THREE.BoxGeometry(1, 2, 1);
+    if (assets.geometryMap['zombie']) {
+        geo = assets.geometryMap['zombie'];
+    }
+    
+    let mat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
+    if (assets.textureMap['zombie']) {
+        mat = new THREE.MeshStandardMaterial({ map: assets.textureMap['zombie'] });
+    } 
 
-    entity.addComponent(new CollisionComponent());
-
-    entity.addComponent(new HealthComponent(ZOMBIE_HEALTH));
-
-    const geo = new THREE.BoxGeometry(1, 2, 1);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(spawnLocation);
-    entity.addComponent(new MeshComponent(mesh));
-
+    mesh.position.copy(position);
+    const MODEL_FORWARD = new THREE.Vector3(0, 0, -1);
+    const facing = direction
+        ? direction.clone().normalize()
+        : new THREE.Vector3().subVectors(new THREE.Vector3(0, 0, 0), position).setY(0).normalize();
+    mesh.quaternion.setFromUnitVectors(MODEL_FORWARD, facing);
+    entity.addComponent(new C.MeshComponent(mesh));
     return entity;
 }

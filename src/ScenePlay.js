@@ -3,8 +3,8 @@ import { Scene } from './Scene.js';
 import { EntityManager } from './EntityManager.js';
 import * as C from './Components.js';
 import { getOBB, satOBB } from './utils.js';
-import { preloadFireballModel, fireballComponents } from './Factories/FireballFactory.js';
-import { zombieComponents } from './Factories/ZombieFactory.js';
+import { setFireballComponents } from './Factories/FireballFactory.js';
+import { setZombieComponents } from './Factories/ZombieFactory.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // config file for level data, not currently used but will be for loading different levels/worlds
@@ -104,14 +104,29 @@ export class ScenePlay extends Scene {
 // ********************************************* DEFAULT WORLD INITIALIZERS *********************************************
 
     /**
-     * Adds ambient and directional (sun) lights to the Three.js scene.
+     * Sets the arena atmosphere (sky color, perimeter fog) and adds lights to the Three.js scene.
+     * Sky is a deep purple; fog is linear and dense enough to obscure beyond the arena walls (~22 units).
      */
     _initDefaultLighting() {
-        this.scene.add(new THREE.AmbientLight(0x404040, 0.8));
-        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+        // Pink/purple sky background
+        this.scene.background = new THREE.Color(0x1e0b33);
+
+        // Linear fog: starts at 16 units, fully opaque at 28 — wraps the arena perimeter in mist
+        this.scene.fog = new THREE.Fog(0x7c7585, 16, 28);
+
+        // Purple-tinted ambient so shadows read as cool violet rather than grey
+        this.scene.add(new THREE.AmbientLight(0x7b3fa8, 0.6));
+
+        // Pinkish directional light (moonlight/magic glow from above)
+        const sun = new THREE.DirectionalLight(0xff99dd, 1.3);
         sun.position.set(50, 100, 50);
         sun.castShadow = true;
         this.scene.add(sun);
+
+        // Subtle fill light from below to soften shadows and reinforce the magical look
+        const fillLight = new THREE.DirectionalLight(0xc46aff, 0.3);
+        fillLight.position.set(-50, -20, -50);
+        this.scene.add(fillLight);
     }
 
     /**
@@ -119,7 +134,9 @@ export class ScenePlay extends Scene {
      */
     _initDefaultEntities() {
         this._initDefaultPlayer();
-        this.spawnZombie(new THREE.Vector3(0, 1, -20));
+
+        const position = new THREE.Vector3(0, 1, -20);
+        this.spawnZombie({position});
 
         // Static collision box for testing
         const staticBox = this.entityManager.addEntity('staticBoxEntity');
@@ -157,10 +174,10 @@ export class ScenePlay extends Scene {
     _initDefaultWorld() {
         const ARENA_RADIUS   = 22;
         const WALL_THICKNESS = 1.2;
-        const WALL_SEGMENTS  = 16;
+        const WALL_SEGMENTS  = 64;
         const WALL_HEIGHT    = 5;
         const SEGMENT_WIDTH  = (2 * Math.PI * ARENA_RADIUS) / WALL_SEGMENTS + 0.3;
-        const SAND_COLOR     = 0xfddea5;
+        const SAND_COLOR     = 0x706653;
         const ARCH_COUNT     = 8;
 
         const r = ARENA_RADIUS - WALL_THICKNESS / 2;
@@ -184,7 +201,7 @@ export class ScenePlay extends Scene {
 
             const wallMesh = new THREE.Mesh(
                 new THREE.BoxGeometry(SEGMENT_WIDTH, WALL_HEIGHT * 2, WALL_THICKNESS),
-                new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+                new THREE.MeshBasicMaterial({ color: SAND_COLOR })
             );
             wallMesh.quaternion.copy(q); // no RotationComponent, so RenderSystem won't override this
 
@@ -229,21 +246,19 @@ export class ScenePlay extends Scene {
 // ************************************************ ENTITY SPAWNERS ************************************************
 // called by systems to spawn entities with the appropriate components for their intended behavior
 
-    /**
-     * Creates a new fireball entity and populates it via fireballComponents().
-     * @param {THREE.Vector3} origin    - World position to spawn the fireball at.
-     * @param {THREE.Vector3} direction - Direction of travel (will be normalised inside the factory).
-     */
-    spawnFireball(origin, direction) {
-        fireballComponents(this.entityManager.addEntity('fireballEntity'), origin, direction);
+
+// data object should include any components that need to be configured (e.g. position, direction) and will be populated with the created entity and assets reference
+
+    spawnFireball(data) {
+        data.entity = this.entityManager.addEntity('fireball');
+        data.assets = this.gameEngine.assets;
+        setFireballComponents(data);
     }
 
-    /**
-     * Creates a new zombie entity and populates it via zombieComponents().
-     * @param {THREE.Vector3} position - World position to spawn the zombie at.
-     */
-    spawnZombie(position) {
-        zombieComponents(this.entityManager.addEntity('zombieEntity'), position);
+    spawnZombie(data) {
+        data.entity = this.entityManager.addEntity('zombie');
+        data.assets = this.gameEngine.assets;
+        setZombieComponents(data);
     }
 
 // ************************************************ LEVEL LOADER ************************************************
@@ -257,10 +272,10 @@ export class ScenePlay extends Scene {
         if (filename) {
 
         } else {
-            this._initDefaultLighting();
             this._initDefaultEntities();
             this._initDefaultWorld();
-            preloadFireballModel();
+            this._initDefaultLighting();
+            // preloadFireballModel();
         }
     }
 
@@ -546,8 +561,8 @@ export class ScenePlay extends Scene {
         if (action.name === 'attack' && action.type === 'start') {
             const direction = new THREE.Vector3();
             this.camera.getWorldDirection(direction);
-            const origin = this.camera.position.clone().addScaledVector(direction, 0.6);
-            this.spawnFireball(origin, direction);
+            const position = this.camera.position.clone().addScaledVector(direction, 0.6);
+            this.spawnFireball({position, direction});
         }
     }
 }
