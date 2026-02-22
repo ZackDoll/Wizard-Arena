@@ -66,7 +66,7 @@ export class ScenePlay extends Scene {
      */
     init(levelPath = LEVEL_PATH) {
 
-        // configure input actions and listeners
+        // map input to game actions
         this.registerAction('KeyW',   'moveForward');
         this.registerAction('KeyS',   'moveBackward');
         this.registerAction('KeyA',   'moveLeft');
@@ -75,6 +75,7 @@ export class ScenePlay extends Scene {
         this.registerAction('Mouse0', 'attack');
         this.registerAction('KeyP',   'pause');
 
+        // set up raw input listeners that populate this.input each frame; sDoAction will read from this.input to perform actions
         this._initInputListeners();
 
         // set up lighting, entities, and world geometry

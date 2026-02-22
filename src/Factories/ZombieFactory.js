@@ -26,18 +26,17 @@ export function setZombieComponents(data) {
     entity.addComponent(new C.CollisionComponent());
     entity.addComponent(new C.HealthComponent(ZOMBIE_HEALTH));
 
-    let geo = new THREE.BoxGeometry(1, 2, 1);
-    if (assets.geometryMap['zombie']) {
-        geo = assets.geometryMap['zombie'];
+    let geometry = new THREE.BoxGeometry(1, 2, 1);
+    if (assets.geometries['zombie']) {
+        geometry = assets.geometries['zombie'];
     }
     
-    let mat = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
-    if (assets.textureMap['zombie']) {
-        mat = new THREE.MeshStandardMaterial({ map: assets.textureMap['zombie'] });
+    let texture = new THREE.MeshStandardMaterial({ color: 0x6a0dad });
+    if (assets.textures['zombie']) {
+        texture = new THREE.MeshStandardMaterial({ map: assets.textures['zombie'] });
     } 
 
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(position);
+    const mesh = new THREE.Mesh(geometry, texture);
     const MODEL_FORWARD = new THREE.Vector3(0, 0, -1);
     const facing = direction
         ? direction.clone().normalize()

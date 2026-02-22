@@ -1,0 +1,14 @@
+
+    [
+        {
+            "name": "fireball",
+            "geometryPath": "../models/fireball.stl",
+            "materialPath": null
+        },
+
+        {
+            "name": "arch",
+            "geometryPath": "../models/arch.glb",
+            "materialPath": null
+        }
+    ]

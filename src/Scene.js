@@ -1,4 +1,3 @@
-import { EntityManager } from './EntityManager.js';
 
 /**
  * Abstract base class for all game scenes (e.g. main menu, gameplay, cutscene).

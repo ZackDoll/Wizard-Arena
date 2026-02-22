@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import assetsFile from './assets.json' assert { type: 'json' };
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -12,41 +13,44 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  */
 export class Assets {
     constructor() {
-        this.textureMap = {};
-        this.geometryMap = {};
-        this.fontMap = {};
-        this.animationMap = {};
-        this.soundMap = {};
+
+        // maps for loaded assets, keyed by name
+        this.textures = {};
+        this.geometries = {};
+
+        // for future use
+        this.fonts = {}; 
+        this.animations = {};
+        this.sounds = {};
+
+        // loaders are created once and reused for multiple assets
         this.textureLoader = new THREE.TextureLoader();
         this.stlLoader = new STLLoader();
         this.gltfLoader = new GLTFLoader();
     }
 
     /**
-     * Reads a manifest file and loads every asset described in it.
-     * Each non-empty, non-comment line must follow the format:
-     *   ASSET_TYPE  ASSET_NAME  ASSET_FILE_PATH
-     * Supported types: MATERIAL, GEOMETRY.
-     * @param {string} filePath - URL or path to the manifest file.
+     * Loads every asset described in assets.json and stores them in the appropriate maps.
+     * The manifest file must be a JSON array of objects with the following properties:
+     * - type: ASSET_TYPE (e.g. "MATERIAL", "GEOMETRY")
+     * - name: ASSET_NAME (key to store the loaded asset under)
+     * - path: ASSET_FILE_PATH (URL or path to the asset file)
      * @returns {Promise<void>} Resolves when all assets have finished loading.
      */
-    async loadFromFile(filePath) {
-        console.log(`Assets: loading from manifest "${filePath}"`);
-        const text = await fetch(filePath).then(res => res.text());
-        console.log(`Assets: loaded manifest "${filePath}" with content:\n${text}`);
-        const promises = [];
-        for (const line of text.split('\n')) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) continue;
-            const [type, name, assetPath] = trimmed.split(/\s+/);
-            switch (type?.toUpperCase()) {
-                case 'MATERIAL': promises.push(this.addMaterial(name, assetPath)); break;
-                case 'GEOMETRY': promises.push(this.addGeometry(name, assetPath)); break;
-                default: console.warn(`Assets: unknown type "${type}" on line: ${trimmed}`);
+    async loadAssets() {
+        for (const asset of assetsFile) {
+            const { name, geometryPath, materialPath } = asset;
+
+            if (materialPath) {
+                await this.addMaterial(name, materialPath);
+            }
+
+            if (geometryPath) {
+                await this.addGeometry(name, geometryPath);
             }
         }
-        return Promise.all(promises);
     }
+
 
     /**
      * Loads a texture from the given path and stores a MeshStandardMaterial under name.
@@ -54,11 +58,11 @@ export class Assets {
      * @param {string} path - URL or path to the image file.
      * @returns {Promise<void>} Resolves when the texture has loaded.
      */
-    addMaterial(name, path) {
+    addMaterial(name, material) {
         return new Promise((resolve) => {
-            const texture = this.textureLoader.load(path, resolve, undefined,
-                (err) => console.error(`Assets: failed to load texture "${path}"`, err));
-            this.textureMap[name] = new THREE.MeshStandardMaterial({ map: texture });
+            const texture = this.textureLoader.load(material, resolve, undefined,
+                (err) => console.error(`Assets: failed to load texture "${material}"`, err));
+            this.textures[name] = new THREE.MeshStandardMaterial({ map: texture });
         });
     }
 
@@ -70,19 +74,20 @@ export class Assets {
      * @param {string} path - URL or path to the model file.
      * @returns {Promise<THREE.BufferGeometry|THREE.Group|null>} Resolves with the loaded asset.
      */
-    addGeometry(name, path) {
-        const ext = path.split('.').pop().toLowerCase();
+    addGeometry(name, geometryPath) {
 
+        const ext = geometryPath.split('.').pop().toLowerCase();
         if (ext === 'stl') {
             return new Promise((resolve, reject) => {
-                this.stlLoader.load(path, (geometry) => {
+                this.stlLoader.load(geometryPath, (geometry) => {
                     geometry.computeVertexNormals();
                     geometry.center();
-                    this.geometryMap[name] = geometry;
+                    geometry.computeBoundingSphere();
+                    this.geometries[name] = geometry;
                     resolve(geometry);
-                    console.log(`Assets: loaded STL geometry "${name}" from "${path}"`);
+                    console.log(`Assets: loaded STL geometry "${name}" from "${geometryPath}"`);
                 }, undefined, (err) => {
-                    console.error(`Assets: failed to load STL "${path}"`, err);
+                    console.error(`Assets: failed to load STL "${geometryPath}"`, err);
                     reject(err);
                 });
             });
@@ -90,19 +95,19 @@ export class Assets {
 
         if (ext === 'glb' || ext === 'gltf') {
             return new Promise((resolve, reject) => {
-                this.gltfLoader.load(path, (gltf) => {
-                    this.geometryMap[name] = gltf.scene;
-                    if (gltf.animations?.length) this.animationMap[name] = gltf.animations;
+                this.gltfLoader.load(geometryPath, (gltf) => {
+                    this.geometries[name] = gltf.scene;
+                    if (gltf.animations?.length) this.animations[name] = gltf.animations;
                     resolve(gltf.scene);
-                    console.log(`Assets: loaded GLTF model "${name}" from "${path}"`);
+                    console.log(`Assets: loaded GLTF model "${name}" from "${geometryPath}"`);
                 }, undefined, (err) => {
-                    console.error(`Assets: failed to load GLTF "${path}"`, err);
+                    console.error(`Assets: failed to load GLTF "${geometryPath}"`, err);
                     reject(err);
                 });
             });
         }
 
-        console.warn(`Assets: unsupported geometry format ".${ext}" for "${path}"`);
+        console.warn(`Assets: unsupported geometry format ".${ext}" for "${geometryPath}"`);
         return Promise.resolve(null);
     }
 
@@ -111,19 +116,19 @@ export class Assets {
      * @param {string} name
      * @returns {THREE.MeshStandardMaterial|null}
      */
-    getMaterial(name) { return this.textureMap[name] ?? null; }
+    getMaterial(name) { return this.textures[name] ?? null; }
 
     /**
      * Returns the geometry or scene object stored under name, or null if not found.
      * @param {string} name
      * @returns {THREE.BufferGeometry|THREE.Group|null}
      */
-    getGeometry(name) { return this.geometryMap[name] ?? null; }
+    getGeometry(name) { return this.geometries[name] ?? null; }
 
     /**
      * Returns the animation clips stored for the given name, or null if none exist.
      * @param {string} name
      * @returns {THREE.AnimationClip[]|null}
      */
-    getAnimations(name) { return this.animationMap[name] ?? null; }
+    getAnimations(name) { return this.animations[name] ?? null; }
 }

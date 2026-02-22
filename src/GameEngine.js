@@ -15,12 +15,12 @@ import { ScenePlay } from './ScenePlay.js';
 export class GameEngine {
     /**
      * @param {HTMLElement} canvasElement - DOM element to attach the renderer canvas to.
-     * @param {string}      [assetPath=''] - Optional path to an asset manifest file.
      */
-    constructor(canvasElement, assetPath = "") {
+    constructor(canvasElement) {
         this.currentScene = null;
         this.isRunning    = true;
-        this.clock        = new THREE.Clock();
+        this.timer        = new THREE.Timer();
+        this.timer.connect(document);
 
         // Renderer must be created before anything that touches domElement.
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -33,14 +33,13 @@ export class GameEngine {
             this.renderer.domElement.requestPointerLock();
         });
 
-        window.addEventListener('resize', () => this.onWindowResize());
+        this.setUpUserInputListeners();
 
-        this.setUpUserInput();
-
-        // Load shared assets (optional — pass assetPath to use a manifest file).
+        // load assets from assets.json
         this.assets = new Assets();
-        if (assetPath) this.assets.loadFromFile(assetPath);
+        this.assets.loadAssets();
 
+        // start with the play scene, which will create the player and spawn enemies
         this.changeScene(new ScenePlay(this));
     }
 
@@ -83,10 +82,11 @@ export class GameEngine {
      * Core game loop — called every frame via requestAnimationFrame.
      * Computes delta time, then delegates update and render to the current scene.
      */
-    animate = () => {
+    animate = (timestamp) => {
         if (!this.isRunning) return;
         requestAnimationFrame(this.animate);
-        const delta = this.clock.getDelta();
+        this.timer.update(timestamp);
+        const delta = this.timer.getDelta();
         if (this.currentScene) {
             this.currentScene.update(delta);
             this.renderer.render(this.currentScene.scene, this.currentScene.camera);
@@ -97,7 +97,7 @@ export class GameEngine {
      * Registers DOM event listeners for keyboard and mouse input.
      * Translates each event into an Action and dispatches it to the current scene.
      */
-    setUpUserInput() {
+    setUpUserInputListeners() {
         // Translate raw keyboard/mouse events into Action objects and dispatch
         // them to the current scene's doAction method.
         document.addEventListener('keydown', (e) => {
@@ -118,5 +118,6 @@ export class GameEngine {
             const actionName = this.currentScene?.actionMap[key];
             if (actionName) this.currentScene.doAction(new Action(actionName, 'stop'));
         });
+        window.addEventListener('resize', () => this.onWindowResize());
     }
 }
