@@ -156,3 +156,19 @@ export class CombustibleComponent extends Component {
         super();
     }
 }
+
+/**
+ * Holds a Three.js PointLight that moves with the entity each frame.
+ * The render system lazily adds it to the scene and removes it when the entity dies.
+ */
+export class LightComponent extends Component {
+    /**
+     * @param {number} [color=0xffffff]  - Light color hex.
+     * @param {number} [intensity=1]     - Light brightness.
+     * @param {number} [distance=10]     - Falloff range in world units (0 = infinite).
+     */
+    constructor(color = 0xffffff, intensity = 1, distance = 10) {
+        super();
+        this.light = new THREE.PointLight(color, intensity, distance);
+    }
+}
