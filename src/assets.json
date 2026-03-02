@@ -16,5 +16,12 @@
             "name": "torch",
             "geometryPath": "../models/torch.stl",
             "materialPath": null
+        },
+
+        {
+            "name": "brick",
+            "geometryPath": null,
+            "materialPath": null,
+            "normalMapPath": "../models/brick_normal.jpg"
         }
     ]
