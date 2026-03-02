@@ -184,13 +184,34 @@ export class ScenePlay extends Scene {
 
         const r = ARENA_RADIUS - WALL_THICKNESS / 2;
 
+        const brickNormal = this.gameEngine.assets.getNormalMap('brick');
+        if (brickNormal) {
+            brickNormal.wrapS = brickNormal.wrapT = THREE.RepeatWrapping;
+        }
+
+        const WALL_MAT = new THREE.MeshStandardMaterial({
+            color: SAND_COLOR,
+            normalMap: brickNormal ?? null,
+            normalScale: new THREE.Vector2(1.5, 1.5),
+            roughness: 0.9,
+        });
+        if (brickNormal) WALL_MAT.normalMap.repeat.set(0.5, 4);
+
+        const FLOOR_MAT = new THREE.MeshStandardMaterial({
+            color: SAND_COLOR,
+            normalMap: brickNormal ?? null,
+            normalScale: new THREE.Vector2(1.2, 1.2),
+            roughness: 0.85,
+        });
+        if (brickNormal) FLOOR_MAT.normalMap.repeat.set(12, 12);
+
         //floor
         const floor = this.entityManager.addEntity('floor');
         floor.addComponent(new C.PositionComponent(new THREE.Vector3(0, -5, 0)));
         floor.addComponent(new C.MeshComponent(
             new THREE.Mesh(
-                new THREE.CylinderGeometry(r, r, 10, 64),
-                new THREE.MeshStandardMaterial({ color: SAND_COLOR })
+                new THREE.CylinderGeometry(r + 1.5, r + 1.5, 10, 64),
+                FLOOR_MAT
             )
         ));
         floor.addComponent(new C.CollisionComponent(new THREE.Vector3(r, 5, r)));
@@ -203,7 +224,7 @@ export class ScenePlay extends Scene {
 
             const wallMesh = new THREE.Mesh(
                 new THREE.BoxGeometry(SEGMENT_WIDTH, WALL_HEIGHT * 2, WALL_THICKNESS),
-                new THREE.MeshStandardMaterial({ color: SAND_COLOR })
+                WALL_MAT
             );
             wallMesh.quaternion.copy(q); // no RotationComponent, so RenderSystem won't override this
 

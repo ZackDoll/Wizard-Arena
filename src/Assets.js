@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import assetsFile from './assets.json' assert { type: 'json' };
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 
 /**
  * Central asset registry for the game.
@@ -17,6 +18,7 @@ export class Assets {
         // maps for loaded assets, keyed by name
         this.textures = {};
         this.geometries = {};
+        this.normalMaps = {};
 
         // for future use
         this.fonts = {}; 
@@ -25,6 +27,7 @@ export class Assets {
 
         // loaders are created once and reused for multiple assets
         this.textureLoader = new THREE.TextureLoader();
+        this.exrLoader = new EXRLoader();
         this.stlLoader = new STLLoader();
         this.gltfLoader = new GLTFLoader();
     }
@@ -39,7 +42,7 @@ export class Assets {
      */
     async loadAssets() {
         for (const asset of assetsFile) {
-            const { name, geometryPath, materialPath } = asset;
+            const { name, geometryPath, materialPath, normalMapPath } = asset;
 
             if (materialPath) {
                 await this.addMaterial(name, materialPath);
@@ -47,6 +50,10 @@ export class Assets {
 
             if (geometryPath) {
                 await this.addGeometry(name, geometryPath);
+            }
+
+            if (normalMapPath) {
+                await this.addNormalMap(name, normalMapPath);
             }
         }
     }
@@ -112,11 +119,32 @@ export class Assets {
     }
 
     /**
+     * Loads a raw texture for use as a normal map and stores it under name.
+     * @param {string} name - Key to store the texture under.
+     * @param {string} path - URL or path to the image file.
+     * @returns {Promise<void>} Resolves when the texture has loaded.
+     */
+    addNormalMap(name, path) {
+        const loader = path.split('.').pop().toLowerCase() === 'exr' ? this.exrLoader : this.textureLoader;
+        return new Promise((resolve) => {
+            this.normalMaps[name] = loader.load(path, resolve, undefined,
+                (err) => console.error(`Assets: failed to load normal map "${path}"`, err));
+        });
+    }
+
+    /**
      * Returns the MeshStandardMaterial stored under name, or null if not found.
      * @param {string} name
      * @returns {THREE.MeshStandardMaterial|null}
      */
     getMaterial(name) { return this.textures[name] ?? null; }
+
+    /**
+     * Returns the normal map texture stored under name, or null if not found.
+     * @param {string} name
+     * @returns {THREE.Texture|null}
+     */
+    getNormalMap(name) { return this.normalMaps[name] ?? null; }
 
     /**
      * Returns the geometry or scene object stored under name, or null if not found.
