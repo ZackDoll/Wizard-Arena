@@ -17,6 +17,7 @@ export function setFireballComponents(data) {
     entity.addComponent(new C.HealthComponent(1));
     entity.addComponent(new C.LifespanComponent(FIREBALL_LIFETIME));
     entity.addComponent(new C.CombustibleComponent());
+    entity.addComponent(new C.LightComponent(0xff4400, 3, 8));
 
     // define default geometry
     let geometry = new THREE.SphereGeometry(FIREBALL_RADIUS, 8, 8);

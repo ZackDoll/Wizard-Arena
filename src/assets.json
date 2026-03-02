@@ -10,5 +10,11 @@
             "name": "arch",
             "geometryPath": "../models/arch.glb",
             "materialPath": null
+        },
+
+        {
+            "name": "torch",
+            "geometryPath": "../models/torch.stl",
+            "materialPath": null
         }
     ]

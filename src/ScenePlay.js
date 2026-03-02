@@ -53,6 +53,7 @@ export class ScenePlay extends Scene {
 
         // Render state
         this.addedMeshes = new Set();
+        this.addedLights = new Set();
 
         // Spawn state
         this.spawnCooldown = 0;
@@ -116,16 +117,16 @@ export class ScenePlay extends Scene {
         this.scene.fog = new THREE.Fog(0x7c7585, 16, 28);
 
         // Purple-tinted ambient so shadows read as cool violet rather than grey
-        this.scene.add(new THREE.AmbientLight(0x7b3fa8, 0.6));
+        this.scene.add(new THREE.AmbientLight(0x7b3fa8, 0.15));
 
         // Pinkish directional light (moonlight/magic glow from above)
-        const sun = new THREE.DirectionalLight(0xff99dd, 1.3);
+        const sun = new THREE.DirectionalLight(0xff99dd, 0.4);
         sun.position.set(50, 100, 50);
         sun.castShadow = true;
         this.scene.add(sun);
 
         // Subtle fill light from below to soften shadows and reinforce the magical look
-        const fillLight = new THREE.DirectionalLight(0xc46aff, 0.3);
+        const fillLight = new THREE.DirectionalLight(0xc46aff, 0.1);
         fillLight.position.set(-50, -20, -50);
         this.scene.add(fillLight);
     }
@@ -202,7 +203,7 @@ export class ScenePlay extends Scene {
 
             const wallMesh = new THREE.Mesh(
                 new THREE.BoxGeometry(SEGMENT_WIDTH, WALL_HEIGHT * 2, WALL_THICKNESS),
-                new THREE.MeshBasicMaterial({ color: SAND_COLOR })
+                new THREE.MeshStandardMaterial({ color: SAND_COLOR })
             );
             wallMesh.quaternion.copy(q); // no RotationComponent, so RenderSystem won't override this
 
@@ -223,6 +224,36 @@ export class ScenePlay extends Scene {
                 q                        // rotation aligns local Z with the outward radial
             ));
             wall.addComponent(new C.MeshComponent(wallMesh));
+        }
+
+        // torches — point lights evenly spaced just inside the arena wall
+        const TORCH_COUNT  = 8;
+        const TORCH_RADIUS = ARENA_RADIUS - 2.5;
+        const TORCH_HEIGHT = 2.5;
+        const torchGeo = this.gameEngine.assets.getGeometry('torch');
+        const torchMat = new THREE.MeshStandardMaterial({ color: 0x8b5e3c });
+
+        const TORCH_SCALE = 0.01;
+        const TORCH_TANGENT_OFFSET = 8;
+
+        for (let i = 0; i < TORCH_COUNT; i++) {
+            const angle = (i / TORCH_COUNT) * Math.PI * 2;
+            const torch = this.entityManager.addEntity('torch');
+            torch.addComponent(new C.PositionComponent(new THREE.Vector3(
+                Math.cos(angle) * TORCH_RADIUS - Math.sin(angle) * TORCH_TANGENT_OFFSET,
+                TORCH_HEIGHT,
+                Math.sin(angle) * TORCH_RADIUS + Math.cos(angle) * TORCH_TANGENT_OFFSET
+            )));
+            torch.addComponent(new C.LightComponent(0xff6a00, 2, 14));
+            if (torchGeo) {
+                const mesh = new THREE.Mesh(torchGeo, torchMat);
+                mesh.scale.setScalar(TORCH_SCALE);
+                const baseQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+                const tangential = new THREE.Vector3(-Math.sin(angle), 0, Math.cos(angle));
+                const tiltQ = new THREE.Quaternion().setFromAxisAngle(tangential, Math.PI / 9);
+                mesh.quaternion.multiplyQuaternions(tiltQ, baseQ);
+                torch.addComponent(new C.MeshComponent(mesh));
+            }
         }
 
         //arches on outside
@@ -287,13 +318,18 @@ export class ScenePlay extends Scene {
      * @param {number} delta - Elapsed time in seconds since the last frame.
      */
     update(delta) {
-        // remove THREE meshes for dying entities before EntityManager prunes them
+        // remove THREE objects for dying entities before EntityManager prunes them
         for (const e of this.entityManager.getEntities()) {
             if (!e.isActive()) {
                 const mesh = e.getComponent('MeshComponent')?.mesh;
                 if (mesh) {
                     this.scene.remove(mesh);
                     this.addedMeshes.delete(mesh);
+                }
+                const light = e.getComponent('LightComponent')?.light;
+                if (light) {
+                    this.scene.remove(light);
+                    this.addedLights.delete(light);
                 }
             }
         }
@@ -545,6 +581,19 @@ export class ScenePlay extends Scene {
 
             const rotation = entity.getComponent('RotationComponent');
             if (rotation != null) meshComp.mesh.rotation.set(rotation.yaw, rotation.pitch, rotation.roll);
+        }
+
+        for (const entity of this.entityManager.getWithComponentName('LightComponent')) {
+            const lightComp = entity.getComponent('LightComponent');
+
+            // add to scene on first appearance
+            if (!this.addedLights.has(lightComp.light)) {
+                this.scene.add(lightComp.light);
+                this.addedLights.add(lightComp.light);
+            }
+
+            const position = entity.getComponent('PositionComponent')?.position;
+            if (position != null) lightComp.light.position.copy(position);
         }
     }
 

@@ -35,12 +35,8 @@ export class GameEngine {
 
         this.setUpUserInputListeners();
 
-        // load assets from assets.json
+        // Assets loaded in run() before the first scene is initialised.
         this.assets = new Assets();
-        this.assets.loadAssets();
-
-        // start with the play scene, which will create the player and spawn enemies
-        this.changeScene(new ScenePlay(this));
     }
 
     /**
@@ -65,9 +61,11 @@ export class GameEngine {
     }
 
     /**
-     * Starts the game loop. Calls animate() which schedules itself via requestAnimationFrame.
+     * Loads assets, initialises the first scene, then starts the game loop.
      */
-    run() {
+    async run() {
+        await this.assets.loadAssets();
+        this.changeScene(new ScenePlay(this));
         this.animate();
     }
 
