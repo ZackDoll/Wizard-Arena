@@ -55,9 +55,8 @@ export class ScenePlay extends Scene {
         this.addedMeshes = new Set();
         this.addedLights = new Set();
 
-        // Spawn state
+        // Fireball spawn cooldown state
         this.spawnCooldown = 0;
-        this.toggleSpawn   = true;
     }
 
     /**
@@ -365,6 +364,7 @@ export class ScenePlay extends Scene {
             this.sGravity(delta);
             this.sCollision();
             this.sLifespan(delta);
+            this.spawnCooldown -= delta;
         }
 
         this.sRender();
@@ -629,11 +629,12 @@ export class ScenePlay extends Scene {
         if (action.name === 'pause' && action.type === 'start') {
             this.isPaused = !this.isPaused;
         }
-        if (action.name === 'attack' && action.type === 'start') {
+        if (action.name === 'attack' && action.type === 'start' && this.spawnCooldown <= 0) {
             const direction = new THREE.Vector3();
             this.camera.getWorldDirection(direction);
             const position = this.camera.position.clone().addScaledVector(direction, 0.6);
             this.spawnFireball({position, direction});
+            this.spawnCooldown = 0.7;
         }
     }
 }
