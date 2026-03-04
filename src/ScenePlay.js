@@ -123,6 +123,14 @@ export class ScenePlay extends Scene {
         const sun = new THREE.DirectionalLight(0xff99dd, 0.4);
         sun.position.set(50, 100, 50);
         sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.left   = -26;
+        sun.shadow.camera.right  =  26;
+        sun.shadow.camera.top    =  26;
+        sun.shadow.camera.bottom = -26;
+        sun.shadow.camera.near   = 0.1;
+        sun.shadow.camera.far    = 200;
+        sun.shadow.camera.updateProjectionMatrix();
         this.scene.add(sun);
 
         // Subtle fill light from below to soften shadows and reinforce the magical look
@@ -595,6 +603,8 @@ export class ScenePlay extends Scene {
             if (!this.addedMeshes.has(meshComp.mesh)) {
                 this.scene.add(meshComp.mesh);
                 this.addedMeshes.add(meshComp.mesh);
+                meshComp.mesh.castShadow    = true;
+                meshComp.mesh.receiveShadow = true;
             }
 
             const position = entity.getComponent('PositionComponent')?.position;
