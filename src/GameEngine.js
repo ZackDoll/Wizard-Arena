@@ -85,7 +85,7 @@ export class GameEngine {
         if (!this.isRunning) return;
         requestAnimationFrame(this.animate);
         this.timer.update(timestamp);
-        const delta = this.timer.getDelta();
+        const delta = Math.min(this.timer.getDelta(), 0.05);
         if (this.currentScene) {
             this.currentScene.update(delta);
             this.renderer.render(this.currentScene.scene, this.currentScene.camera);

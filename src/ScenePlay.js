@@ -33,7 +33,7 @@ export class ScenePlay extends Scene {
         this.player = null;
 
         this.playerConfig = {
-            x: 0, y: 2, z: 0,
+            x: 0, y: 5, z: 0,
             speed: 10,
             jumpStrength: 13,
             gravity: 20,
@@ -389,7 +389,6 @@ export class ScenePlay extends Scene {
      * discarded to prevent camera jump artifacts.
      */
     sCameraControl() {
-        const keys = this.input.keys;
         const sensitivity = 0.002;
         const deltaThreshold = 200;
 
@@ -468,12 +467,16 @@ export class ScenePlay extends Scene {
      * @param {number} delta - Elapsed seconds since last frame.
      */
     sGravity(delta) {
+        const MAX_FALL_SPEED = 30;
         for (const e of this.entityManager.getWithComponentName('PositionComponent', 'VelocityComponent', 'GravityComponent')) {
             const posComp = e.getComponent('PositionComponent');
             const velComp = e.getComponent('VelocityComponent');
 
-            if (!posComp.isOnGround) {
+            if (posComp.isOnGround) {
+                if (velComp.velocity.y < 0) velComp.velocity.y = 0;
+            } else {
                 velComp.velocity.y -= this.playerConfig.gravity * delta;
+                velComp.velocity.y = Math.max(velComp.velocity.y, -MAX_FALL_SPEED);
                 posComp.position.addScaledVector(velComp.velocity, delta);
             }
         }
