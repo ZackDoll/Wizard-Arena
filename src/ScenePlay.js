@@ -128,9 +128,11 @@ export class ScenePlay extends Scene {
         sun.shadow.camera.right  =  26;
         sun.shadow.camera.top    =  26;
         sun.shadow.camera.bottom = -26;
-        sun.shadow.camera.near   = 0.1;
+        sun.shadow.camera.near   = 1;
         sun.shadow.camera.far    = 200;
         sun.shadow.camera.updateProjectionMatrix();
+        sun.shadow.bias       = -0.001;
+        sun.shadow.normalBias =  0.003;
         this.scene.add(sun);
 
         // Subtle fill light from below to soften shadows and reinforce the magical look
@@ -171,8 +173,10 @@ export class ScenePlay extends Scene {
         this.player.addComponent(new C.GravityComponent());
         this.player.addComponent(new C.CollisionComponent());
         this.player.addComponent(new C.HealthComponent());
+        const playerGeo = new THREE.BoxGeometry(1, 2, 1);
+        playerGeo.translate(0, 0.4, 0);
         this.player.addComponent(new C.MeshComponent(new THREE.Mesh(
-            new THREE.BoxGeometry(1, 2, 1),
+            playerGeo,
             new THREE.MeshStandardMaterial({ color: 0x6a0dad })
         )));
     }
