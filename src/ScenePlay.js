@@ -121,17 +121,7 @@ export class ScenePlay extends Scene {
         // Pinkish directional light (moonlight/magic glow from above)
         const sun = new THREE.DirectionalLight(0xff99dd, 0.4);
         sun.position.set(50, 100, 50);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(2048, 2048);
-        sun.shadow.camera.left   = -26;
-        sun.shadow.camera.right  =  26;
-        sun.shadow.camera.top    =  26;
-        sun.shadow.camera.bottom = -26;
-        sun.shadow.camera.near   = 1;
-        sun.shadow.camera.far    = 200;
-        sun.shadow.camera.updateProjectionMatrix();
-        sun.shadow.bias       = -0.001;
-        sun.shadow.normalBias =  0.003;
+        // directional shadow disabled — sunSphere PointLight provides per-direction shadows instead
         this.scene.add(sun);
 
         // Subtle fill light from below to soften shadows and reinforce the magical look
@@ -246,10 +236,20 @@ export class ScenePlay extends Scene {
         });
         const dome = this.entityManager.addEntity('dome');
         dome.addComponent(new C.PositionComponent(new THREE.Vector3(0, WALL_HEIGHT * 2, 0)));
-        dome.addComponent(new C.MeshComponent(new THREE.Mesh(
-            new THREE.SphereGeometry(ARENA_RADIUS, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-            DOME_MAT
+        dome.addComponent(new C.MeshComponent(
+            new THREE.Mesh(new THREE.SphereGeometry(ARENA_RADIUS, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), DOME_MAT),
+            false, // castShadow=false — BackSide dome must not cast shadows into the arena interior
+            true
+        ));
+        const sunSphere = this.entityManager.addEntity('sunSphere');
+        sunSphere.addComponent(new C.LightComponent(0xff99dd, 3, 80, true));
+        sunSphere.addComponent(new C.PositionComponent(new THREE.Vector3(0, 5, -5)));
+        sunSphere.addComponent(new C.MeshComponent(new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 16, 8),
+            new THREE.MeshBasicMaterial({ color: 0xff99dd })
         )));
+    
+
         //bounding walls (invisible, just for collisions)
         const yAxis = new THREE.Vector3(0, 1, 0);
         for (let i = 0; i < WALL_SEGMENTS; i++) {
@@ -633,8 +633,8 @@ export class ScenePlay extends Scene {
             if (!this.addedMeshes.has(meshComp.mesh)) {
                 this.scene.add(meshComp.mesh);
                 this.addedMeshes.add(meshComp.mesh);
-                meshComp.mesh.castShadow    = true;
-                meshComp.mesh.receiveShadow = true;
+                meshComp.mesh.castShadow    = meshComp.castShadow;
+                meshComp.mesh.receiveShadow = meshComp.receiveShadow;
             }
 
             const position = entity.getComponent('PositionComponent')?.position;

@@ -91,11 +91,15 @@ export class HealthComponent extends Component {
  */
 export class MeshComponent extends Component {
     /**
-     * @param {THREE.Object3D|null} [mesh=null] - The Three.js mesh or scene object.
+     * @param {THREE.Object3D|null} [mesh=null]        - The Three.js mesh or scene object.
+     * @param {boolean}             [castShadow=true]   - Whether this mesh casts shadows.
+     * @param {boolean}             [receiveShadow=true] - Whether this mesh receives shadows.
      */
-    constructor(mesh = null) {
+    constructor(mesh = null, castShadow = true, receiveShadow = true) {
         super();
         this.mesh = mesh;
+        this.castShadow = castShadow;
+        this.receiveShadow = receiveShadow;
     }
 }
 
@@ -167,8 +171,10 @@ export class LightComponent extends Component {
      * @param {number} [intensity=1]     - Light brightness.
      * @param {number} [distance=10]     - Falloff range in world units (0 = infinite).
      */
-    constructor(color = 0xffffff, intensity = 1, distance = 10) {
+    constructor(color = 0xffffff, intensity = 1, distance = 10, castShadow = false) {
         super();
         this.light = new THREE.PointLight(color, intensity, distance);
+        this.light.castShadow = castShadow;
+        if (castShadow) this.light.shadow.mapSize.set(1024, 1024);
     }
 }
