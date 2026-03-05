@@ -33,7 +33,7 @@ export class ScenePlay extends Scene {
         this.player = null;
 
         this.playerConfig = {
-            x: 0, y: 2, z: 0,
+            x: 0, y: 5, z: 0,
             speed: 10,
             jumpStrength: 13,
             gravity: 20,
@@ -122,6 +122,16 @@ export class ScenePlay extends Scene {
         const sun = new THREE.DirectionalLight(0xff99dd, 0.4);
         sun.position.set(50, 100, 50);
         sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.left   = -26;
+        sun.shadow.camera.right  =  26;
+        sun.shadow.camera.top    =  26;
+        sun.shadow.camera.bottom = -26;
+        sun.shadow.camera.near   = 1;
+        sun.shadow.camera.far    = 200;
+        sun.shadow.camera.updateProjectionMatrix();
+        sun.shadow.bias       = -0.001;
+        sun.shadow.normalBias =  0.003;
         this.scene.add(sun);
 
         // Subtle fill light from below to soften shadows and reinforce the magical look
@@ -162,8 +172,10 @@ export class ScenePlay extends Scene {
         this.player.addComponent(new C.GravityComponent());
         this.player.addComponent(new C.CollisionComponent());
         this.player.addComponent(new C.HealthComponent());
+        const playerGeo = new THREE.BoxGeometry(1, 2, 1);
+        playerGeo.translate(0, 0.4, 0);
         this.player.addComponent(new C.MeshComponent(new THREE.Mesh(
-            new THREE.BoxGeometry(1, 2, 1),
+            playerGeo,
             new THREE.MeshStandardMaterial({ color: 0x6a0dad })
         )));
     }
@@ -381,7 +393,6 @@ export class ScenePlay extends Scene {
      * discarded to prevent camera jump artifacts.
      */
     sCameraControl() {
-        const keys = this.input.keys;
         const sensitivity = 0.002;
         const deltaThreshold = 200;
 
@@ -460,12 +471,16 @@ export class ScenePlay extends Scene {
      * @param {number} delta - Elapsed seconds since last frame.
      */
     sGravity(delta) {
+        const MAX_FALL_SPEED = 30;
         for (const e of this.entityManager.getWithComponentName('PositionComponent', 'VelocityComponent', 'GravityComponent')) {
             const posComp = e.getComponent('PositionComponent');
             const velComp = e.getComponent('VelocityComponent');
 
-            if (!posComp.isOnGround) {
+            if (posComp.isOnGround) {
+                if (velComp.velocity.y < 0) velComp.velocity.y = 0;
+            } else {
                 velComp.velocity.y -= this.playerConfig.gravity * delta;
+                velComp.velocity.y = Math.max(velComp.velocity.y, -MAX_FALL_SPEED);
                 posComp.position.addScaledVector(velComp.velocity, delta);
             }
         }
@@ -595,6 +610,8 @@ export class ScenePlay extends Scene {
             if (!this.addedMeshes.has(meshComp.mesh)) {
                 this.scene.add(meshComp.mesh);
                 this.addedMeshes.add(meshComp.mesh);
+                meshComp.mesh.castShadow    = true;
+                meshComp.mesh.receiveShadow = true;
             }
 
             const position = entity.getComponent('PositionComponent')?.position;
