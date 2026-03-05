@@ -70,6 +70,9 @@ export class ScenePlay extends Scene {
         // Zombie speed and time until it increases
         this.zombieSpeed = ZOMBIE_START_SPEED;
         this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
+
+        // Player invulnerable time after getting hit by a zombie
+        this.playerInvulnTime = 0.5;
     }
 
     /**
@@ -415,6 +418,7 @@ export class ScenePlay extends Scene {
             this.sCollision();
             this.sLifespan(delta);
             this.spawnCooldown -= delta;
+            this.playerInvulnTime -= delta;
             this.elapsedTime += delta;
         }
 
@@ -605,6 +609,11 @@ export class ScenePlay extends Scene {
                 const mtv = satOBB(getOBB(a), getOBB(b));
                 if (!mtv) continue;
 
+                if (((a.tag == "wizardEntity" && b.tag == "zombie") || (b.tag == "wizardEntity" && a.tag == "zombie")) && this.playerInvulnTime <= 0) {
+                    this.player.getComponent('HealthComponent').hp -= 10;
+                    this.playerInvulnTime = 0.75;
+                }
+                
                 if (a.getComponent('CombustibleComponent')) {
                     if (b.id !== 0) {
                         a.destroy();
