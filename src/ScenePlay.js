@@ -193,6 +193,8 @@ export class ScenePlay extends Scene {
         const SAND_COLOR     = 0x706653;
         const ARCH_COUNT     = 8;
 
+        
+
         const r = ARENA_RADIUS - WALL_THICKNESS / 2;
 
         const brickNormal = this.gameEngine.assets.getNormalMap('brick');
@@ -227,6 +229,27 @@ export class ScenePlay extends Scene {
         ));
         floor.addComponent(new C.CollisionComponent(new THREE.Vector3(r, 5, r)));
 
+        
+        // Dome ceiling — hemisphere sitting on top of the walls
+        const domeNormal = brickNormal ? brickNormal.clone() : null;
+        if (domeNormal) {
+            domeNormal.wrapS = domeNormal.wrapT = THREE.RepeatWrapping;
+            domeNormal.repeat.set(6, 3);
+            domeNormal.needsUpdate = true;
+        }
+        const DOME_MAT = new THREE.MeshStandardMaterial({
+            color: SAND_COLOR,
+            normalMap: domeNormal,
+            normalScale: new THREE.Vector2(1.5, 1.5),
+            roughness: 0.9,
+            side: THREE.BackSide,
+        });
+        const dome = this.entityManager.addEntity('dome');
+        dome.addComponent(new C.PositionComponent(new THREE.Vector3(0, WALL_HEIGHT * 2, 0)));
+        dome.addComponent(new C.MeshComponent(new THREE.Mesh(
+            new THREE.SphereGeometry(ARENA_RADIUS, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+            DOME_MAT
+        )));
         //bounding walls (invisible, just for collisions)
         const yAxis = new THREE.Vector3(0, 1, 0);
         for (let i = 0; i < WALL_SEGMENTS; i++) {
