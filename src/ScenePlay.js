@@ -10,6 +10,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 // config file for level data, not currently used but will be for loading different levels/worlds
 const LEVEL_PATH = "";
 
+// config for zombie move speed, right now move speed increased every minute and caps after 4 minutes
+const ZOMBIE_SPEED_INCREMENT = 1;
+const ZOMBIE_SPEED_INCREMENT_INTERVAL = 60;
+const ZOMBIE_START_SPEED = 1;
+const ZOMBIE_MAX_SPEED = 5;
+
 // scenes hold all the game state and logic for a particular mode (e.g. main menu, gameplay, etc.)
 
 /**
@@ -57,6 +63,13 @@ export class ScenePlay extends Scene {
 
         // Fireball spawn cooldown state
         this.spawnCooldown = 0;
+
+        // Time elapsed since game started
+        this.elapsedTime = 0;
+
+        // Zombie speed and time until it increases
+        this.zombieSpeed = ZOMBIE_START_SPEED;
+        this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
     }
 
     /**
@@ -138,6 +151,7 @@ export class ScenePlay extends Scene {
 
         const position = new THREE.Vector3(0, 1, -20);
         this.spawnZombie({position});
+        this.spawnZombie({position: new THREE.Vector3(5, 1, -10)});
 
         // Static collision box for testing
         const staticBox = this.entityManager.addEntity('staticBoxEntity');
@@ -395,11 +409,13 @@ export class ScenePlay extends Scene {
         // run game systems only if not paused (except rendering)
         if (!this.isPaused) {
             this.sCameraControl();
+            this.sZombieAI(delta);
             this.sMovement(delta);
             this.sGravity(delta);
             this.sCollision();
             this.sLifespan(delta);
             this.spawnCooldown -= delta;
+            this.elapsedTime += delta;
         }
 
         this.sRender();
@@ -440,6 +456,57 @@ export class ScenePlay extends Scene {
         // sync camera position to wizard
         const wizPos = this.entityManager.getWithID(0)?.getComponent('PositionComponent');
         if (wizPos) this.camera.position.copy(wizPos.position);
+    }
+
+    /**
+     * Simple AI system: move zombies toward the player by setting their XZ velocity.
+     * Also rotates the zombie mesh to face movement direction.
+     * @param {number} delta - Elapsed seconds since last frame.
+     */
+    sZombieAI(delta) {
+        if (!this.player) return;
+        const playerPos = this.player.getComponent('PositionComponent')?.position;
+        if (!playerPos) return;
+
+        if (this.zombieSpeed >= ZOMBIE_MAX_SPEED) {
+            this.zombieSpeed = ZOMBIE_MAX_SPEED;
+        } else if (this.speedIncreaseInterval <= 0) {
+            this.zombieSpeed += ZOMBIE_SPEED_INCREMENT;
+            this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
+        } else {
+            this.speedIncreaseInterval -= delta;
+        }
+
+        const zombies = this.entityManager.getEntitiesWithTag('zombie');
+        for (const z of zombies) {
+            if (!z.isActive()) continue;
+            const posComp = z.getComponent('PositionComponent');
+            const velComp = z.getComponent('VelocityComponent');
+            if (!posComp || !velComp) continue;
+
+            const toPlayer = new THREE.Vector3().subVectors(playerPos, posComp.position);
+            toPlayer.y = 0; // chase on XZ plane only
+            const distSq = toPlayer.lengthSq();
+            if (distSq < 0.01) {
+                velComp.velocity.x = 0;
+                velComp.velocity.z = 0;
+            } else {
+                toPlayer.normalize();
+                velComp.velocity.x = toPlayer.x * this.zombieSpeed;
+                velComp.velocity.z = toPlayer.z * this.zombieSpeed;
+            }
+
+            // rotate mesh to face movement direction
+            const meshComp = z.getComponent('MeshComponent');
+            if (meshComp && meshComp.mesh) {
+                const MODEL_FORWARD = new THREE.Vector3(0, 0, -1);
+                const facing = new THREE.Vector3(velComp.velocity.x, 0, velComp.velocity.z);
+                if (facing.lengthSq() > 0) {
+                    facing.normalize();
+                    meshComp.mesh.quaternion.setFromUnitVectors(MODEL_FORWARD, facing);
+                }
+            }
+        }
     }
 
     /**

@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import * as C from '../Components.js';
 
 const ZOMBIE_HEALTH = 100;
-const ZOMBIE_SPEED = 1.5;
 
 /**
  * Attaches all components needed for a zombie enemy to the given entity.
