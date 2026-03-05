@@ -126,7 +126,7 @@ export class ScenePlay extends Scene {
         this.scene.background = new THREE.Color(0x1e0b33);
 
         // Linear fog: starts at 16 units, fully opaque at 28 — wraps the arena perimeter in mist
-        this.scene.fog = new THREE.Fog(0x7c7585, 16, 28);
+        this.scene.fog = new THREE.Fog(0x000000, 16, 28);
 
         // Purple-tinted ambient so shadows read as cool violet rather than grey
         this.scene.add(new THREE.AmbientLight(0x7b3fa8, 0.15));
