@@ -379,7 +379,6 @@ export class ScenePlay extends Scene {
             this._initDefaultEntities();
             this._initDefaultWorld();
             this._initDefaultLighting();
-            // preloadFireballModel();
         }
     }
 

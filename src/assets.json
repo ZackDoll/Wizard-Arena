@@ -23,5 +23,10 @@
             "geometryPath": null,
             "materialPath": null,
             "normalMapPath": "../models/brick_normal.jpg"
+        },
+
+        {
+            "name": "default",
+            "fontPath": "fonts/helvetiker_regular.typeface.json"
         }
     ]

@@ -3,6 +3,8 @@ import assetsFile from './assets.json' assert { type: 'json' };
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 /**
  * Central asset registry for the game.
@@ -42,7 +44,7 @@ export class Assets {
      */
     async loadAssets() {
         for (const asset of assetsFile) {
-            const { name, geometryPath, materialPath, normalMapPath } = asset;
+            const { name, geometryPath, materialPath, normalMapPath, fontPath } = asset;
 
             if (materialPath) {
                 await this.addMaterial(name, materialPath);
@@ -54,6 +56,10 @@ export class Assets {
 
             if (normalMapPath) {
                 await this.addNormalMap(name, normalMapPath);
+            }
+
+            if (fontPath) {
+                await this.addFont(name, fontPath);
             }
         }
     }
@@ -129,6 +135,26 @@ export class Assets {
         return new Promise((resolve) => {
             this.normalMaps[name] = loader.load(path, resolve, undefined,
                 (err) => console.error(`Assets: failed to load normal map "${path}"`, err));
+        });
+    }
+
+    addFont(name, fontPath) {
+        const loader = new FontLoader();
+
+        return new Promise((resolve, reject) => {
+            loader.load(
+                fontPath, 
+                (font) => {
+                    this.fonts[name] = font;
+                    console.log(name, "font was loaded successfully");
+                    resolve(font);
+                },
+                undefined,
+                (error) => {
+                    console.error("Failed to load font:", error);
+                    reject(error);
+                }
+            );
         });
     }
 

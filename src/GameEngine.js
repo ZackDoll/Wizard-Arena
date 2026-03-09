@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Assets } from './Assets.js';
 import { Action } from './Action.js';
 import { ScenePlay } from './ScenePlay.js';
+import { SceneMenu } from './SceneMenu.js';
 
 /**
  * Top-level game loop controller.
@@ -66,7 +67,8 @@ export class GameEngine {
      */
     async run() {
         await this.assets.loadAssets();
-        this.changeScene(new ScenePlay(this));
+        // TODO: change first scene to SceneMenu
+        this.changeScene(new SceneMenu(this));
         this.animate();
     }
 
