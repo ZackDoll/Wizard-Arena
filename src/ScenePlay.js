@@ -71,8 +71,15 @@ export class ScenePlay extends Scene {
         this.zombieSpeed = ZOMBIE_START_SPEED;
         this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
 
+        // Zombie spawner
+        this.zombieCount = 0;
+        this.zombieSpawnTimer = 0;
+
         // Player invulnerable time after getting hit by a zombie
         this.playerInvulnTime = 0.5;
+
+        // Amount of zombies the player killed
+        this.playerKills = 0;
     }
 
     /**
@@ -363,6 +370,7 @@ export class ScenePlay extends Scene {
         data.entity = this.entityManager.addEntity('zombie');
         data.assets = this.gameEngine.assets;
         setZombieComponents(data);
+        this.zombieCount += 1;
     }
 
 // ************************************************ LEVEL LOADER ************************************************
@@ -402,6 +410,11 @@ export class ScenePlay extends Scene {
                     this.scene.remove(light);
                     this.addedLights.delete(light);
                 }
+
+                if (e.tag === 'zombie') {
+                    this.zombieCount -= 1;
+                    this.playerKills += 1;
+                } 
             }
         }
 
@@ -411,6 +424,7 @@ export class ScenePlay extends Scene {
         // run game systems only if not paused (except rendering)
         if (!this.isPaused) {
             this.sCameraControl();
+            this.sZombieSpawn(delta);
             this.sZombieAI(delta);
             this.sMovement(delta);
             this.sGravity(delta);
@@ -461,6 +475,46 @@ export class ScenePlay extends Scene {
         if (wizPos) this.camera.position.copy(wizPos.position);
     }
 
+    sZombieSpawn(delta) {
+        // Config
+        const SPAWN_INTERVAL   = 10;       // seconds between waves
+        const ZOMBIES_PER_WAVE = 3;       // zombies per wave (can scale with elapsedTime)
+        const SPAWN_RADIUS     = 12;       // how far from player zombies appear
+        const ARENA_RADIUS     = 20.5;    // slightly inside wall to avoid clipping
+
+        if (!this.player) return;
+
+        this.zombieSpawnTimer -= delta;
+        if (this.zombieCount <= 0) this.zombieSpawnTimer = 0;
+        if (this.zombieSpawnTimer > 0) return;
+        this.zombieSpawnTimer = SPAWN_INTERVAL;
+
+        const playerPos = this.player.getComponent('PositionComponent')?.position;
+        if (!playerPos) return;
+
+        // Scale zombies per wave with time
+        const waveSize = (this.elapsedTime <= 225) ? ZOMBIES_PER_WAVE + Math.floor(this.elapsedTime / 45) : 8;
+
+        for (let i = 0; i < waveSize; i++) {
+            // Pick a random angle and spawn at SPAWN_RADIUS away from player
+            const angle = Math.random() * Math.PI * 2;
+            let sx = playerPos.x + Math.cos(angle) * SPAWN_RADIUS;
+            let sz = playerPos.z + Math.sin(angle) * SPAWN_RADIUS;
+
+            // Clamp to arena circle: if outside, project back onto the boundary
+            const distFromCenter = Math.sqrt(sx * sx + sz * sz);
+            if (distFromCenter > ARENA_RADIUS) {
+                const scale = ARENA_RADIUS / distFromCenter;
+                sx *= scale;
+                sz *= scale;
+            }
+
+            this.spawnZombie({
+                position: new THREE.Vector3(sx, 1, sz)
+            });
+        }
+    }
+
     /**
      * Simple AI system: move zombies toward the player by setting their XZ velocity.
      * Also rotates the zombie mesh to face movement direction.
@@ -502,7 +556,7 @@ export class ScenePlay extends Scene {
             // rotate mesh to face movement direction
             const meshComp = z.getComponent('MeshComponent');
             if (meshComp && meshComp.mesh) {
-                const MODEL_FORWARD = new THREE.Vector3(0, 0, -1);
+                const MODEL_FORWARD = new THREE.Vector3(0, 0, 1);
                 const facing = new THREE.Vector3(velComp.velocity.x, 0, velComp.velocity.z);
                 if (facing.lengthSq() > 0) {
                     facing.normalize();
@@ -617,9 +671,7 @@ export class ScenePlay extends Scene {
                     if (b.id !== 0) {
                         a.destroy();
                         if (b.getComponent('HealthComponent')) {
-                            b.getComponent('HealthComponent').hp -= 30;
-                            console.log(b.getComponent('HealthComponent').hp);
-                            console.log("combusted", a.id);
+                            b.getComponent('HealthComponent').hp -= 50;
                         }
                     } else { continue; }
                 }
@@ -627,9 +679,7 @@ export class ScenePlay extends Scene {
                     if (a.id !== 0) {
                         b.destroy();
                         if (a.getComponent('HealthComponent')) {
-                            a.getComponent('HealthComponent').hp -= 30;
-                            console.log(a.getComponent('HealthComponent').hp);
-                            console.log("combusted", b.id);
+                            a.getComponent('HealthComponent').hp -= 50;
                         }
                     } else { continue; }
                 }
