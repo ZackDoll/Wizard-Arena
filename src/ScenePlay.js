@@ -10,11 +10,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 // config file for level data, not currently used but will be for loading different levels/worlds
 const LEVEL_PATH = "";
 
-// config for zombie move speed, right now move speed increased every minute and caps after 4 minutes
-const ZOMBIE_SPEED_INCREMENT = 1;
-const ZOMBIE_SPEED_INCREMENT_INTERVAL = 60;
-const ZOMBIE_START_SPEED = 1;
-const ZOMBIE_MAX_SPEED = 5;
+// zombie speed starts at 1 and increases by 0.2 per kill with no cap
+const ZOMBIE_START_SPEED    = 1;
+const ZOMBIE_SPEED_PER_KILL = 0.2;
 
 // scenes hold all the game state and logic for a particular mode (e.g. main menu, gameplay, etc.)
 
@@ -67,9 +65,7 @@ export class ScenePlay extends Scene {
         // Time elapsed since game started
         this.elapsedTime = 0;
 
-        // Zombie speed and time until it increases
         this.zombieSpeed = ZOMBIE_START_SPEED;
-        this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
 
         // Zombie spawner
         this.zombieCount = 0;
@@ -529,19 +525,12 @@ export class ScenePlay extends Scene {
      * Also rotates the zombie mesh to face movement direction.
      * @param {number} delta - Elapsed seconds since last frame.
      */
-    sZombieAI(delta) {
+    sZombieAI() {
         if (!this.player) return;
         const playerPos = this.player.getComponent('PositionComponent')?.position;
         if (!playerPos) return;
 
-        if (this.zombieSpeed >= ZOMBIE_MAX_SPEED) {
-            this.zombieSpeed = ZOMBIE_MAX_SPEED;
-        } else if (this.speedIncreaseInterval <= 0) {
-            this.zombieSpeed += ZOMBIE_SPEED_INCREMENT;
-            this.speedIncreaseInterval = ZOMBIE_SPEED_INCREMENT_INTERVAL;
-        } else {
-            this.speedIncreaseInterval -= delta;
-        }
+        this.zombieSpeed = ZOMBIE_START_SPEED + this.playerKills * ZOMBIE_SPEED_PER_KILL;
 
         const zombies = this.entityManager.getEntitiesWithTag('zombie');
         for (const z of zombies) {
