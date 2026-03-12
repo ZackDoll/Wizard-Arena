@@ -80,6 +80,7 @@ export class ScenePlay extends Scene {
 
         // Amount of zombies the player killed
         this.playerKills = 0;
+        this.scoreEl = document.getElementById('score');
     }
 
     /**
@@ -88,6 +89,8 @@ export class ScenePlay extends Scene {
      * @param {string} [levelPath=LEVEL_PATH] - Path to a level file, or '' for the default scene.
      */
     init(levelPath = LEVEL_PATH) {
+
+        if (this.scoreEl) this.scoreEl.style.display = 'block';
 
         // map input to game actions
         this.registerAction('KeyW',   'moveForward');
@@ -360,6 +363,11 @@ export class ScenePlay extends Scene {
 
 // data object should include any components that need to be configured (e.g. position, direction) and will be populated with the created entity and assets reference
 
+    onEnd() {
+        super.onEnd();
+        if (this.scoreEl) this.scoreEl.style.display = 'none';
+    }
+
     spawnFireball(data) {
         data.entity = this.entityManager.addEntity('fireball');
         data.assets = this.gameEngine.assets;
@@ -414,7 +422,8 @@ export class ScenePlay extends Scene {
                 if (e.tag === 'zombie') {
                     this.zombieCount -= 1;
                     this.playerKills += 1;
-                } 
+                    if (this.scoreEl) this.scoreEl.textContent = `Score: ${this.playerKills * 100}`;
+                }
             }
         }
 
