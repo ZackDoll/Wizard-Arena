@@ -76,7 +76,9 @@ export class ScenePlay extends Scene {
 
         // Amount of zombies the player killed
         this.playerKills = 0;
-        this.scoreEl = document.getElementById('score');
+        this.scoreEl     = document.getElementById('score');
+        this.healthBarEl = document.getElementById('health-bar');
+        this.healthBarContainerEl = document.getElementById('health-bar-container');
     }
 
     /**
@@ -87,6 +89,7 @@ export class ScenePlay extends Scene {
     init(levelPath = LEVEL_PATH) {
 
         if (this.scoreEl) this.scoreEl.style.display = 'block';
+        if (this.healthBarContainerEl) this.healthBarContainerEl.style.display = 'block';
 
         // map input to game actions
         this.registerAction('KeyW',   'moveForward');
@@ -362,6 +365,7 @@ export class ScenePlay extends Scene {
     onEnd() {
         super.onEnd();
         if (this.scoreEl) this.scoreEl.style.display = 'none';
+        if (this.healthBarContainerEl) this.healthBarContainerEl.style.display = 'none';
     }
 
     spawnFireball(data) {
@@ -661,8 +665,10 @@ export class ScenePlay extends Scene {
                 if (!mtv) continue;
 
                 if (((a.tag == "wizardEntity" && b.tag == "zombie") || (b.tag == "wizardEntity" && a.tag == "zombie")) && this.playerInvulnTime <= 0) {
-                    this.player.getComponent('HealthComponent').hp -= 10;
+                    const hpComp = this.player.getComponent('HealthComponent');
+                    hpComp.hp -= 10;
                     this.playerInvulnTime = 0.75;
+                    if (this.healthBarEl) this.healthBarEl.style.width = `${Math.max(0, (hpComp.hp / hpComp.maxHp) * 100)}%`;
                 }
                 
                 if (a.getComponent('CombustibleComponent')) {
@@ -792,7 +798,8 @@ export class ScenePlay extends Scene {
         if (action.name === 'pause' && action.type === 'start') {
             this.isPaused = !this.isPaused;
         }
-        if (action.name === 'attack' && action.type === 'start' && this.spawnCooldown <= 0) {
+        const playerHp = this.player?.getComponent('HealthComponent')?.hp ?? 0;
+        if (action.name === 'attack' && action.type === 'start' && this.spawnCooldown <= 0 && playerHp > 0) {
             const direction = new THREE.Vector3();
             this.camera.getWorldDirection(direction);
             const position = this.camera.position.clone().addScaledVector(direction, 0.6);

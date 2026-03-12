@@ -32,12 +32,29 @@
         text-shadow: 0 0 6px #000;
         display: none;
       }
+      #health-bar-container {
+        position: fixed;
+        bottom: 24px; left: 50%;
+        transform: translateX(-50%);
+        width: 400px; height: 28px;
+        background: rgba(0,0,0,0.5);
+        border: 2px solid rgba(255,255,255,0.25);
+        pointer-events: none;
+        display: none;
+      }
+      #health-bar {
+        height: 100%;
+        width: 100%;
+        background: #c0392b;
+        transition: width 0.15s;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <div id="crosshair"></div>
     <div id="score">Score: 0</div>
+    <div id="health-bar-container"><div id="health-bar"></div></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
