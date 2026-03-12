@@ -790,7 +790,17 @@ export class ScenePlay extends Scene {
             }
 
             const position = entity.getComponent('PositionComponent')?.position;
-            if (position != null) lightComp.light.position.copy(position);
+            if (position != null) {
+                if (entity.tag == 'torch') {
+                    const angle = Math.atan2(position.x, position.z);
+                    const tangential = new THREE.Vector3(-Math.sin(angle), 0, Math.cos(angle));
+                    const tiltQ = new THREE.Quaternion().setFromAxisAngle(tangential, Math.PI / 9);
+                    const lightOffset = new THREE.Vector3(0, 0.4, 0).applyQuaternion(tiltQ);
+                    lightComp.light.position.copy(position.clone().add(lightOffset));
+                } else {
+                    lightComp.light.position.copy(position);
+                }  
+            } 
         }
     }
 
