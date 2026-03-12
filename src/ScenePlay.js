@@ -6,6 +6,7 @@ import { getOBB, satOBB } from './utils.js';
 import { setFireballComponents } from './Factories/FireballFactory.js';
 import { setZombieComponents } from './Factories/ZombieFactory.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { SceneDeath } from './SceneDeath.js';
 
 // config file for level data, not currently used but will be for loading different levels/worlds
 const LEVEL_PATH = "";
@@ -88,8 +89,9 @@ export class ScenePlay extends Scene {
      */
     init(levelPath = LEVEL_PATH) {
 
-        if (this.scoreEl) this.scoreEl.style.display = 'block';
+        if (this.scoreEl) { this.scoreEl.style.display = 'block'; this.scoreEl.textContent = 'Score: 0'; }
         if (this.healthBarContainerEl) this.healthBarContainerEl.style.display = 'block';
+        if (this.healthBarEl) this.healthBarEl.style.width = '100%';
 
         // map input to game actions
         this.registerAction('KeyW',   'moveForward');
@@ -423,6 +425,11 @@ export class ScenePlay extends Scene {
                     this.zombieCount -= 1;
                     this.playerKills += 1;
                     if (this.scoreEl) this.scoreEl.textContent = `Score: ${this.playerKills * 100}`;
+                }
+                if (e.tag === 'wizardEntity') {
+                    this.onEnd();
+                    this.gameEngine.changeScene(new SceneDeath(this.gameEngine, this.playerKills * 100));
+                    return;
                 }
             }
         }
