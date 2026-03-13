@@ -41,8 +41,8 @@ export class ScenePlay extends Scene {
         this.playerConfig = {
             x: 0, y: 5, z: 0,
             speed: 10,
-            jumpStrength: 13,
-            gravity: 20,
+            jumpStrength: 11,
+            gravity: 24,
         };
 
         // Input state
@@ -173,23 +173,24 @@ export class ScenePlay extends Scene {
         const H = 6;
         const OBSTACLE_MAT = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
         const obstacles = [
+            { pos: new THREE.Vector3( 0,  (H/2) - 2, 0), w: 1, d: 5 },
             // Centre cross walls
-            { pos: new THREE.Vector3( 0,  H/2, -10), w: 6, d: 1 },
-            { pos: new THREE.Vector3( 0,  H/2,  10), w: 6, d: 1 },
-            { pos: new THREE.Vector3(-10, H/2,   0), w: 1, d: 6 },
-            { pos: new THREE.Vector3( 10, H/2,   0), w: 1, d: 6 },
+            { pos: new THREE.Vector3( 0,  (H/2) - 3.5, -12), w: 6, d: 1 },
+            { pos: new THREE.Vector3( 0,  (H/2) - 3.5,  12), w: 6, d: 1 },
+            //{ pos: new THREE.Vector3(-10, H/2,   0), w: 1, d: 6 },
+            //{ pos: new THREE.Vector3( 10, H/2,   0), w: 1, d: 6 },
             // Diagonal pillars
-            { pos: new THREE.Vector3(-7, H/2,  -5), w: 1, d: 4 },
-            { pos: new THREE.Vector3( 7, H/2,  -5), w: 1, d: 4 },
-            { pos: new THREE.Vector3(-7, H/2,   5), w: 1, d: 4 },
-            { pos: new THREE.Vector3( 7, H/2,   5), w: 1, d: 4 },
+            { pos: new THREE.Vector3(-7, H/2,  -5), w: 2, d: 2 },
+            { pos: new THREE.Vector3( 7, H/2,  -5), w: 2, d: 2},
+            { pos: new THREE.Vector3(-7, H/2,   5), w: 2, d: 2 },
+            { pos: new THREE.Vector3( 7, H/2,   5), w: 2, d: 2 },
             // Outer ring pillars
-            { pos: new THREE.Vector3(-14, H/2, -8), w: 2, d: 2 },
-            { pos: new THREE.Vector3( 14, H/2, -8), w: 2, d: 2 },
-            { pos: new THREE.Vector3(-14, H/2,  8), w: 2, d: 2 },
-            { pos: new THREE.Vector3( 14, H/2,  8), w: 2, d: 2 },
-            { pos: new THREE.Vector3(  0, H/2, -17), w: 4, d: 1 },
-            { pos: new THREE.Vector3(  0, H/2,  17), w: 4, d: 1 },
+            //{ pos: new THREE.Vector3(-14, H/2, -8), w: 2, d: 2 },
+            //{ pos: new THREE.Vector3( 14, H/2, -8), w: 2, d: 2 },
+            //{ pos: new THREE.Vector3(-14, H/2,  8), w: 2, d: 2 },
+            //{ pos: new THREE.Vector3( 14, H/2,  8), w: 2, d: 2 },
+            //{ pos: new THREE.Vector3(  0, H/2, -17), w: 4, d: 1 },
+            //{ pos: new THREE.Vector3(  0, H/2,  17), w: 4, d: 1 },
         ];
         for (const { pos, w, d } of obstacles) {
             const e = this.entityManager.addEntity('staticBoxEntity');
