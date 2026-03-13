@@ -175,10 +175,9 @@ export class ScenePlay extends Scene {
         const H = 6;
         const OBSTACLE_MAT = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
         const obstacles = [
-            { pos: new THREE.Vector3( 0,  (H/2) - 2, 0), w: 1, d: 5 },
             // Centre cross walls
-            { pos: new THREE.Vector3( 0,  (H/2) - 3.5, -12), w: 6, d: 1 },
-            { pos: new THREE.Vector3( 0,  (H/2) - 3.5,  12), w: 6, d: 1 },
+            { pos: new THREE.Vector3( 0,  (H/2) - 2, -12), w: 6, d: 1 },
+            { pos: new THREE.Vector3( 0,  (H/2) - 2,  12), w: 6, d: 1 },
             //{ pos: new THREE.Vector3(-10, H/2,   0), w: 1, d: 6 },
             //{ pos: new THREE.Vector3( 10, H/2,   0), w: 1, d: 6 },
             // Diagonal pillars
