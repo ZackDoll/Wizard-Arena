@@ -143,19 +143,20 @@ export class ScenePlay extends Scene {
         // Linear fog: starts at 16 units, fully opaque at 28 — wraps the arena perimeter in mist
         this.scene.fog = new THREE.Fog(0x000000, 16, 28);
 
-        // Purple-tinted ambient so shadows read as cool violet rather than grey
-        this.scene.add(new THREE.AmbientLight(0x7b3fa8, 0.15));
+        // Near-zero ambient — arena is very dark outside the central light pool
+        this.scene.add(new THREE.AmbientLight(0x1a0a2e, 0.02));
 
-        // Pinkish directional light (moonlight/magic glow from above)
-        const sun = new THREE.DirectionalLight(0xff99dd, 0.4);
-        sun.position.set(50, 100, 50);
-        // directional shadow disabled — sunSphere PointLight provides per-direction shadows instead
-        this.scene.add(sun);
-
-        // Subtle fill light from below to soften shadows and reinforce the magical look
-        const fillLight = new THREE.DirectionalLight(0xc46aff, 0.1);
-        fillLight.position.set(-50, -20, -50);
-        this.scene.add(fillLight);
+        // Central overhead point light — tight falloff creates a bright pool at centre,
+        // darkness at the edges; shadows radiate outward from the source
+        const keyLight = new THREE.PointLight(0xffeedd, 120, 30, 2);
+        keyLight.position.set(0, 14, 0);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.set(1024, 1024);
+        keyLight.shadow.camera.near = 1;
+        keyLight.shadow.camera.far  = 30;
+        keyLight.shadow.bias = 0.0;
+        keyLight.shadow.normalBias = 0.5;
+        this.scene.add(keyLight);
     }
 
     /**
@@ -168,19 +169,34 @@ export class ScenePlay extends Scene {
         this.spawnZombie({position});
         this.spawnZombie({position: new THREE.Vector3(5, 0.75, -10)});
 
-        // Static obstacles for A* testing
+        // Static obstacles — height 6 blocks max jump (~4.2 units)
+        const H = 6;
         const OBSTACLE_MAT = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
         const obstacles = [
-            { pos: new THREE.Vector3(0,   1, -10), w: 6, d: 1 },  // wide wall across centre
-            { pos: new THREE.Vector3(-7,  1,  -5), w: 1, d: 4 },  // left pillar cluster
-            { pos: new THREE.Vector3( 7,  1,  -5), w: 1, d: 4 },  // right pillar cluster
+            // Centre cross walls
+            { pos: new THREE.Vector3( 0,  H/2, -10), w: 6, d: 1 },
+            { pos: new THREE.Vector3( 0,  H/2,  10), w: 6, d: 1 },
+            { pos: new THREE.Vector3(-10, H/2,   0), w: 1, d: 6 },
+            { pos: new THREE.Vector3( 10, H/2,   0), w: 1, d: 6 },
+            // Diagonal pillars
+            { pos: new THREE.Vector3(-7, H/2,  -5), w: 1, d: 4 },
+            { pos: new THREE.Vector3( 7, H/2,  -5), w: 1, d: 4 },
+            { pos: new THREE.Vector3(-7, H/2,   5), w: 1, d: 4 },
+            { pos: new THREE.Vector3( 7, H/2,   5), w: 1, d: 4 },
+            // Outer ring pillars
+            { pos: new THREE.Vector3(-14, H/2, -8), w: 2, d: 2 },
+            { pos: new THREE.Vector3( 14, H/2, -8), w: 2, d: 2 },
+            { pos: new THREE.Vector3(-14, H/2,  8), w: 2, d: 2 },
+            { pos: new THREE.Vector3( 14, H/2,  8), w: 2, d: 2 },
+            { pos: new THREE.Vector3(  0, H/2, -17), w: 4, d: 1 },
+            { pos: new THREE.Vector3(  0, H/2,  17), w: 4, d: 1 },
         ];
         for (const { pos, w, d } of obstacles) {
             const e = this.entityManager.addEntity('staticBoxEntity');
             e.addComponent(new C.PositionComponent(pos));
-            e.addComponent(new C.CollisionComponent(new THREE.Vector3(w / 2, 1, d / 2)));
+            e.addComponent(new C.CollisionComponent(new THREE.Vector3(w / 2, H / 2, d / 2)));
             e.addComponent(new C.MeshComponent(new THREE.Mesh(
-                new THREE.BoxGeometry(w, 2, d),
+                new THREE.BoxGeometry(w, H, d),
                 OBSTACLE_MAT
             )));
         }
@@ -278,14 +294,6 @@ export class ScenePlay extends Scene {
             false, // castShadow=false — BackSide dome must not cast shadows into the arena interior
             true
         ));
-        const sunSphere = this.entityManager.addEntity('sunSphere');
-        sunSphere.addComponent(new C.LightComponent(0xff99dd, 3, 80, true));
-        sunSphere.addComponent(new C.PositionComponent(new THREE.Vector3(0, 5, -5)));
-        sunSphere.addComponent(new C.MeshComponent(new THREE.Mesh(
-            new THREE.SphereGeometry(0.5, 16, 8),
-            new THREE.MeshBasicMaterial({ color: 0xff99dd })
-        )));
-    
 
         //bounding walls (invisible, just for collisions)
         const yAxis = new THREE.Vector3(0, 1, 0);
@@ -409,9 +417,23 @@ export class ScenePlay extends Scene {
             // Build navigation grid after world is set up.
             // Register static obstacle footprints (XZ) so A* avoids them.
             this.navGrid = new NavigationGrid(20, [
-                { minX: -3,   maxX:  3,  minZ: -10.5, maxZ:  -9.5 }, // wide centre wall
-                { minX: -7.5, maxX: -6.5, minZ: -7,   maxZ:  -3   }, // left pillar
-                { minX:  6.5, maxX:  7.5, minZ: -7,   maxZ:  -3   }, // right pillar
+                // Centre cross walls
+                { minX: -3,   maxX:  3,   minZ: -10.5, maxZ:  -9.5 },
+                { minX: -3,   maxX:  3,   minZ:   9.5, maxZ:  10.5 },
+                { minX: -10.5,maxX: -9.5, minZ:  -3,   maxZ:   3   },
+                { minX:  9.5, maxX: 10.5, minZ:  -3,   maxZ:   3   },
+                // Diagonal pillars
+                { minX: -7.5, maxX: -6.5, minZ:  -7,   maxZ:  -3   },
+                { minX:  6.5, maxX:  7.5, minZ:  -7,   maxZ:  -3   },
+                { minX: -7.5, maxX: -6.5, minZ:   3,   maxZ:   7   },
+                { minX:  6.5, maxX:  7.5, minZ:   3,   maxZ:   7   },
+                // Outer ring pillars
+                { minX: -15,  maxX: -13,  minZ:  -9,   maxZ:  -7   },
+                { minX:  13,  maxX:  15,  minZ:  -9,   maxZ:  -7   },
+                { minX: -15,  maxX: -13,  minZ:   7,   maxZ:   9   },
+                { minX:  13,  maxX:  15,  minZ:   7,   maxZ:   9   },
+                { minX: -2,   maxX:  2,   minZ: -17.5, maxZ: -16.5 },
+                { minX: -2,   maxX:  2,   minZ:  16.5, maxZ:  17.5 },
             ]);
         }
     }
