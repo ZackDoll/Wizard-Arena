@@ -173,8 +173,27 @@ export class ScenePlay extends Scene {
 
         // Static obstacles — height 6 blocks max jump (~4.2 units)
         const H = 6;
-        const OBSTACLE_MAT = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
+        const brickNormal = this.gameEngine.assets.getNormalMap('brick');
+        const BRICK_SIZE = 1; // world units per brick tile
+        // BoxGeometry face order: +x/-x (right/left, d×H), +y/-y (top/bottom, w×d), +z/-z (front/back, w×H)
+        // Per-face materials let each face have its own repeat, avoiding UV attribute hacks.
+        const makeBrickMats = (w, d, h) => {
+            const faceDims = [[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+            return faceDims.map(([ru, rv]) => {
+                if (!brickNormal) return new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
+                const n = brickNormal.clone();
+                n.wrapS = n.wrapT = THREE.RepeatWrapping;
+                n.repeat.set(ru / BRICK_SIZE, rv / BRICK_SIZE);
+                n.needsUpdate = true;
+                return new THREE.MeshStandardMaterial({ color: 0x8c7a5c, normalMap: n });
+            });
+        };
         const obstacles = [
+            // Centre pillar cluster
+            { pos: new THREE.Vector3(-1.5, H/2,  -1), w: 1, d: 1 },
+            { pos: new THREE.Vector3( 1.5, H/2,   1), w: 1, d: 1 },
+            { pos: new THREE.Vector3( 1.5, H/2,  -2), w: 1, d: 1 },
+            { pos: new THREE.Vector3(-1.5, H/2,   2), w: 1, d: 1 },
             // Centre cross walls
             { pos: new THREE.Vector3( 0,  (H/2) - 2, -12), w: 6, d: 1 },
             { pos: new THREE.Vector3( 0,  (H/2) - 2,  12), w: 6, d: 1 },
@@ -199,7 +218,7 @@ export class ScenePlay extends Scene {
             e.addComponent(new C.CollisionComponent(new THREE.Vector3(w / 2, H / 2, d / 2)));
             e.addComponent(new C.MeshComponent(new THREE.Mesh(
                 new THREE.BoxGeometry(w, H, d),
-                OBSTACLE_MAT
+                makeBrickMats(w, d, H)
             )));
         }
     }
