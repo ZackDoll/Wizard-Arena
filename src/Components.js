@@ -162,6 +162,19 @@ export class CombustibleComponent extends Component {
 }
 
 /**
+ * Holds a Three.js AnimationMixer for playing skeletal animations on an entity's mesh.
+ */
+export class AnimationComponent extends Component {
+    /**
+     * @param {THREE.AnimationMixer} mixer - The mixer tied to this entity's mesh.
+     */
+    constructor(mixer) {
+        super();
+        this.mixer = mixer;
+    }
+}
+
+/**
  * Holds a Three.js PointLight that moves with the entity each frame.
  * The render system lazily adds it to the scene and removes it when the entity dies.
  */

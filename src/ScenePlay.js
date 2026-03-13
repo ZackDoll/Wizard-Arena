@@ -163,9 +163,9 @@ export class ScenePlay extends Scene {
     _initDefaultEntities() {
         this._initDefaultPlayer();
 
-        const position = new THREE.Vector3(0, 1, -20);
+        const position = new THREE.Vector3(0, 0.75, -20);
         this.spawnZombie({position});
-        this.spawnZombie({position: new THREE.Vector3(5, 1, -10)});
+        this.spawnZombie({position: new THREE.Vector3(5, 0.75, -10)});
 
         // Static collision box for testing
         const staticBox = this.entityManager.addEntity('staticBoxEntity');
@@ -446,6 +446,7 @@ export class ScenePlay extends Scene {
             this.sGravity(delta);
             this.sCollision();
             this.sLifespan(delta);
+            this.sAnimation(delta);
             this.spawnCooldown -= delta;
             this.playerInvulnTime -= delta;
             this.elapsedTime += delta;
@@ -526,7 +527,7 @@ export class ScenePlay extends Scene {
             }
 
             this.spawnZombie({
-                position: new THREE.Vector3(sx, 1, sz)
+                position: new THREE.Vector3(sx, 0.75, sz)
             });
         }
     }
@@ -752,6 +753,16 @@ export class ScenePlay extends Scene {
         // destroy entities with 0 or less health
         for (const e of this.entityManager.getWithComponentName('HealthComponent')) {
             if (e.getComponent('HealthComponent').hp <= 0) e.destroy();
+        }
+    }
+
+    /**
+     * Advances all AnimationMixer instances by delta so skeletal animations play.
+     * @param {number} delta - Elapsed seconds since last frame.
+     */
+    sAnimation(delta) {
+        for (const e of this.entityManager.getWithComponentName('AnimationComponent')) {
+            e.getComponent('AnimationComponent').mixer.update(delta);
         }
     }
 

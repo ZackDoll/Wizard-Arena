@@ -19,6 +19,11 @@
         },
 
         {
+            "name": "zombie",
+            "geometryPath": "../models/zombie_commoner.glb"
+        },
+
+        {
             "name": "brick",
             "geometryPath": null,
             "materialPath": null,
