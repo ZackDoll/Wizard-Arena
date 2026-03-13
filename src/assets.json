@@ -24,6 +24,11 @@
         },
 
         {
+            "name": "wizard",
+            "geometryPath": "../models/wizard.glb"
+        },
+
+        {
             "name": "brick",
             "geometryPath": null,
             "materialPath": null,

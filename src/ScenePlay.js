@@ -6,6 +6,7 @@ import { getOBB, satOBB } from './utils.js';
 import { setFireballComponents } from './Factories/FireballFactory.js';
 import { setZombieComponents } from './Factories/ZombieFactory.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { SceneDeath } from './SceneDeath.js';
 import { NavigationGrid, findPath } from './NavigationGrid.js';
 
@@ -156,6 +157,7 @@ export class ScenePlay extends Scene {
         keyLight.shadow.camera.far  = 30;
         keyLight.shadow.bias = 0.0;
         keyLight.shadow.normalBias = 0.5;
+
         this.scene.add(keyLight);
     }
 
@@ -216,12 +218,45 @@ export class ScenePlay extends Scene {
         this.player.addComponent(new C.GravityComponent());
         this.player.addComponent(new C.CollisionComponent());
         this.player.addComponent(new C.HealthComponent());
-        const playerGeo = new THREE.BoxGeometry(1, 2, 1);
-        playerGeo.translate(0, 0.4, 0);
-        this.player.addComponent(new C.MeshComponent(new THREE.Mesh(
-            playerGeo,
-            new THREE.MeshStandardMaterial({ color: 0x6a0dad })
-        )));
+        const WIZARD_TARGET_HEIGHT = 2.0;
+        const wizardHalfH = WIZARD_TARGET_HEIGHT / 2;
+        const wrapper = new THREE.Group();
+        const gltfScene = this.gameEngine.assets.getGeometry('wizard');
+        const clips     = this.gameEngine.assets.getAnimations('wizard');
+
+        if (gltfScene) {
+            const inner = SkeletonUtils.clone(gltfScene);
+            inner.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(inner);
+            const sz = new THREE.Vector3(); box.getSize(sz);
+            const modelHeight = sz.y;
+            if (modelHeight > 0) inner.scale.setScalar(WIZARD_TARGET_HEIGHT / modelHeight);
+            inner.position.y = -wizardHalfH;
+            inner.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = false;
+                    // colorWrite=false hides from main camera; shadow pass uses MeshDepthMaterial so shadow still casts
+                    child.material = child.material.clone();
+                    child.material.colorWrite = false;
+                    child.material.depthWrite = false;
+                }
+            });
+            wrapper.add(inner);
+            if (clips?.length) {
+                const mixer = new THREE.AnimationMixer(inner);
+                const walkClip = THREE.AnimationUtils.subclip(clips[0], 'walk', 0, Math.round(1.56 * 30), 30);
+                const action = mixer.clipAction(walkClip);
+                action.play();
+                action.paused = true; // start paused; sAnimation will unpause when moving
+                this.player.addComponent(new C.AnimationComponent(mixer, action));
+            }
+        } else {
+            const geo = new THREE.BoxGeometry(1, WIZARD_TARGET_HEIGHT, 1);
+            geo.translate(0, 0.4, 0);
+            wrapper.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x6a0dad })));
+        }
+        this.player.addComponent(new C.MeshComponent(wrapper, true, true));
     }
 
     /**
@@ -834,7 +869,29 @@ export class ScenePlay extends Scene {
      */
     sAnimation(delta) {
         for (const e of this.entityManager.getWithComponentName('AnimationComponent')) {
-            e.getComponent('AnimationComponent').mixer.update(delta);
+            const animComp = e.getComponent('AnimationComponent');
+
+            // For entities with a controlled action, pause when not moving
+            if (animComp.action) {
+                let moving;
+                if (e.getComponent('InputComponent')) {
+                    // Player moves via direct position offset, not velocity — check keys instead
+                    const k = this.input.keys;
+                    moving = k['KeyW'] || k['KeyS'] || k['KeyA'] || k['KeyD'];
+                } else {
+                    const vel = e.getComponent('VelocityComponent');
+                    moving = vel && (Math.abs(vel.velocity.x) > 0.01 || Math.abs(vel.velocity.z) > 0.01);
+                }
+                animComp.action.paused = !moving;
+            }
+
+            // Rotate player mesh to match camera yaw
+            if (e === this.player) {
+                const mesh = e.getComponent('MeshComponent')?.mesh;
+                if (mesh) mesh.rotation.y = this.camYaw;
+            }
+
+            animComp.mixer.update(delta);
         }
     }
 

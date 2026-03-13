@@ -168,9 +168,10 @@ export class AnimationComponent extends Component {
     /**
      * @param {THREE.AnimationMixer} mixer - The mixer tied to this entity's mesh.
      */
-    constructor(mixer) {
+    constructor(mixer, action = null) {
         super();
-        this.mixer = mixer;
+        this.mixer  = mixer;
+        this.action = action; // optional: primary AnimationAction for play/pause control
     }
 }
 
