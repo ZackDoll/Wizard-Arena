@@ -7,6 +7,7 @@ import { setFireballComponents } from './Factories/FireballFactory.js';
 import { setZombieComponents } from './Factories/ZombieFactory.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SceneDeath } from './SceneDeath.js';
+import { NavigationGrid, findPath } from './NavigationGrid.js';
 
 // config file for level data, not currently used but will be for loading different levels/worlds
 const LEVEL_PATH = "";
@@ -167,14 +168,22 @@ export class ScenePlay extends Scene {
         this.spawnZombie({position});
         this.spawnZombie({position: new THREE.Vector3(5, 0.75, -10)});
 
-        // Static collision box for testing
-        const staticBox = this.entityManager.addEntity('staticBoxEntity');
-        staticBox.addComponent(new C.PositionComponent(new THREE.Vector3(0, 1, -10)));
-        staticBox.addComponent(new C.CollisionComponent());
-        staticBox.addComponent(new C.MeshComponent(new THREE.Mesh(
-            new THREE.BoxGeometry(1, 2, 1),
-            new THREE.MeshStandardMaterial({ color: 0x8c7a5c })
-        )));
+        // Static obstacles for A* testing
+        const OBSTACLE_MAT = new THREE.MeshStandardMaterial({ color: 0x8c7a5c });
+        const obstacles = [
+            { pos: new THREE.Vector3(0,   1, -10), w: 6, d: 1 },  // wide wall across centre
+            { pos: new THREE.Vector3(-7,  1,  -5), w: 1, d: 4 },  // left pillar cluster
+            { pos: new THREE.Vector3( 7,  1,  -5), w: 1, d: 4 },  // right pillar cluster
+        ];
+        for (const { pos, w, d } of obstacles) {
+            const e = this.entityManager.addEntity('staticBoxEntity');
+            e.addComponent(new C.PositionComponent(pos));
+            e.addComponent(new C.CollisionComponent(new THREE.Vector3(w / 2, 1, d / 2)));
+            e.addComponent(new C.MeshComponent(new THREE.Mesh(
+                new THREE.BoxGeometry(w, 2, d),
+                OBSTACLE_MAT
+            )));
+        }
     }
 
     /**
@@ -397,6 +406,13 @@ export class ScenePlay extends Scene {
             this._initDefaultEntities();
             this._initDefaultWorld();
             this._initDefaultLighting();
+            // Build navigation grid after world is set up.
+            // Register static obstacle footprints (XZ) so A* avoids them.
+            this.navGrid = new NavigationGrid(20, [
+                { minX: -3,   maxX:  3,  minZ: -10.5, maxZ:  -9.5 }, // wide centre wall
+                { minX: -7.5, maxX: -6.5, minZ: -7,   maxZ:  -3   }, // left pillar
+                { minX:  6.5, maxX:  7.5, minZ: -7,   maxZ:  -3   }, // right pillar
+            ]);
         }
     }
 
@@ -537,40 +553,73 @@ export class ScenePlay extends Scene {
      * Also rotates the zombie mesh to face movement direction.
      * @param {number} delta - Elapsed seconds since last frame.
      */
-    sZombieAI() {
+    sZombieAI(delta) {
         if (!this.player) return;
         const playerPos = this.player.getComponent('PositionComponent')?.position;
         if (!playerPos) return;
 
         this.zombieSpeed = ZOMBIE_START_SPEED + this.playerKills * ZOMBIE_SPEED_PER_KILL;
 
+        const PATH_RECOMPUTE_INTERVAL = 0.5;
+        const WAYPOINT_REACH_DIST_SQ  = 0.6 * 0.6;
+
         const zombies = this.entityManager.getEntitiesWithTag('zombie');
         for (const z of zombies) {
             if (!z.isActive()) continue;
-            const posComp = z.getComponent('PositionComponent');
-            const velComp = z.getComponent('VelocityComponent');
+            const posComp  = z.getComponent('PositionComponent');
+            const velComp  = z.getComponent('VelocityComponent');
+            const pathComp = z.getComponent('PathComponent');
             if (!posComp || !velComp) continue;
 
-            const toPlayer = new THREE.Vector3().subVectors(playerPos, posComp.position);
-            toPlayer.y = 0; // chase on XZ plane only
-            const distSq = toPlayer.lengthSq();
+            // ── A* path update ──────────────────────────────────────────
+            if (pathComp && this.navGrid) {
+                pathComp.recomputeTimer -= delta;
+                if (pathComp.recomputeTimer <= 0) {
+                    pathComp.waypoints = findPath(this.navGrid, posComp.position, playerPos);
+                    pathComp.recomputeTimer = PATH_RECOMPUTE_INTERVAL;
+                }
+                // advance past waypoints the zombie has reached
+                while (pathComp.waypoints.length > 0) {
+                    const wp = pathComp.waypoints[0];
+                    const dx = wp.x - posComp.position.x;
+                    const dz = wp.z - posComp.position.z;
+                    if (dx * dx + dz * dz < WAYPOINT_REACH_DIST_SQ) {
+                        pathComp.waypoints.shift();
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            // ── steer toward next waypoint (or player directly) ─────────
+            const target = (pathComp?.waypoints?.length > 0)
+                ? pathComp.waypoints[0]
+                : playerPos;
+
+            const toTarget = new THREE.Vector3(
+                target.x - posComp.position.x,
+                0,
+                target.z - posComp.position.z
+            );
+            const distSq = toTarget.lengthSq();
             if (distSq < 0.01) {
                 velComp.velocity.x = 0;
                 velComp.velocity.z = 0;
             } else {
-                toPlayer.normalize();
-                velComp.velocity.x = toPlayer.x * this.zombieSpeed;
-                velComp.velocity.z = toPlayer.z * this.zombieSpeed;
+                toTarget.normalize();
+                velComp.velocity.x = toTarget.x * this.zombieSpeed;
+                velComp.velocity.z = toTarget.z * this.zombieSpeed;
             }
 
-            // rotate mesh to face movement direction
+            // smoothly rotate mesh to face movement direction
             const meshComp = z.getComponent('MeshComponent');
-            if (meshComp && meshComp.mesh) {
+            if (meshComp?.mesh) {
                 const MODEL_FORWARD = new THREE.Vector3(0, 0, 1);
                 const facing = new THREE.Vector3(velComp.velocity.x, 0, velComp.velocity.z);
                 if (facing.lengthSq() > 0) {
                     facing.normalize();
-                    meshComp.mesh.quaternion.setFromUnitVectors(MODEL_FORWARD, facing);
+                    const targetQ = new THREE.Quaternion().setFromUnitVectors(MODEL_FORWARD, facing);
+                    meshComp.mesh.quaternion.slerp(targetQ, Math.min(1, delta * 8));
                 }
             }
         }

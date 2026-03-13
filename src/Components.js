@@ -175,6 +175,17 @@ export class AnimationComponent extends Component {
 }
 
 /**
+ * Stores the current A* path and recompute timer for an entity following the navigation grid.
+ */
+export class PathComponent extends Component {
+    constructor() {
+        super();
+        this.waypoints = [];   // THREE.Vector3[] — remaining waypoints to follow
+        this.recomputeTimer = 0; // seconds until next path recalculation
+    }
+}
+
+/**
  * Holds a Three.js PointLight that moves with the entity each frame.
  * The render system lazily adds it to the scene and removes it when the entity dies.
  */

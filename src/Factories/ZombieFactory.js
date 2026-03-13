@@ -14,9 +14,9 @@ export function setZombieComponents(data) {
 
     entity.addComponent(new C.PositionComponent(position));
     entity.addComponent(new C.VelocityComponent(new THREE.Vector3()));
-    // Collision box matched to actual model size, centered at entity position
     entity.addComponent(new C.CollisionComponent(new THREE.Vector3(0.5, halfHeight, 0.5)));
     entity.addComponent(new C.HealthComponent(ZOMBIE_HEALTH));
+    entity.addComponent(new C.PathComponent());
 
     const gltfScene = assets.getGeometry('zombie');
     const clips     = assets.getAnimations('zombie');
